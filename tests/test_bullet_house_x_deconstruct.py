@@ -20,6 +20,3 @@ class TestBulletHouseXDeconstruct(unittest.TestCase):
       (states_, in_hands_, obs_), rewards, dones = env.step(action, auto_reset=False)
     self.assertEqual(dones, 1)
     env.close()
-
-cls = TestBulletHouseXDeconstruct()
-cls.testPlanner()
