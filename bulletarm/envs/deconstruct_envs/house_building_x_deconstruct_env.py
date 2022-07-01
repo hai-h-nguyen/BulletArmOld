@@ -17,9 +17,7 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
     goal = config["goal_string"]
     self.check_goal = CheckGoal(goal, self)
 
-    kwargs = {
-      "additional_objects": self.additional_objects
-    }
+    kwargs = {}
 
     for key in ["gen_blocks", "gen_bricks", "gen_triangles", "gen_roofs"]:
       if key in config:
@@ -41,18 +39,6 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
 
     return obs, reward, done
 
-  def reset(self):
-    ''''''
-    while True:
-      super(HouseBuildingXDeconstructEnv, self).reset()
-      self.gen_goal.gen()
-
-      while not self.checkStructure():
-        super(HouseBuildingXDeconstructEnv, self).reset()
-        self.gen_goal.gen()
-
-      return self._getObservation()
-
   def _checkTermination(self):
     obj_combs = combinations(self.objects, 2)
     for (obj1, obj2) in obj_combs:
@@ -63,6 +49,9 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
 
   def checkStructure(self):
     return self.check_goal.check()
+
+  def generateStructure(self):
+    self.gen_goal.gen()
 
   def isSimValid(self):
     roofs = list(filter(lambda x: self.object_types[x] == constants.ROOF, self.objects))

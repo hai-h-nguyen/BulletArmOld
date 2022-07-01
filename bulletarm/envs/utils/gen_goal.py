@@ -200,7 +200,7 @@ class GenGoal:
       else:
         raise ValueError("Unknown object.")
 
-  def __init__(self, goal, env, additional_objects=True, gen_blocks=4, gen_bricks=2, gen_triangles=1, gen_roofs=1):
+  def __init__(self, goal, env, additional_objects=False, gen_blocks=4, gen_bricks=2, gen_triangles=1, gen_roofs=1):
     self.goal = goal
     self.env = env
     self.additional_objects = additional_objects
