@@ -166,6 +166,7 @@ class CheckGoal:
     self.num_bricks = 0
     self.num_triangles = 0
     self.num_roofs = 0
+    self.num_objects = 0
 
     self.levels = []
 
@@ -196,3 +197,5 @@ class CheckGoal:
     self.levels = self.Stack(self.levels)
 
     self.height = len(self.levels.levels)
+
+    self.num_objects = self.num_blocks + self.num_bricks + self.num_roofs + self.num_triangles

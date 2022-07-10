@@ -77,7 +77,7 @@ CREATE_ENV_FNS = {
   'house_building_3' : createHouseBuilding3Env,
   'house_building_4' : createHouseBuilding4Env,
   'house_building_5' : createHouseBuilding5Env,
-  'house_buliding_x' : createHouseBuildingXEnv,
+  'house_building_x' : createHouseBuildingXEnv,
   'improvise_house_building_2' : createImproviseHouseBuilding2Env,
   'improvise_house_building_3' : createImproviseHouseBuilding3Env,
   'improvise_house_building_discrete' : createImproviseHouseBuildingDiscreteEnv,
