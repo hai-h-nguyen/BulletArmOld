@@ -62,3 +62,6 @@ class EnvWrapper:
 
     def gatherDeconstructTransitions(self, planner_episode):
         return self.envs.gatherDeconstructTransitions(planner_episode)
+
+    def getNumObj(self):
+        return self.envs.getNumObj()

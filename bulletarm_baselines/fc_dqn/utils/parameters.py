@@ -19,8 +19,8 @@ env_group.add_argument('--action_sequence', type=str, default='xyrp', choices=['
 env_group.add_argument('--random_orientation', type=strToBool, default=True, help='Allow the environment to initialize with random orientation')
 env_group.add_argument('--num_processes', type=int, default=5, help='The number of parallel environments to run')
 env_group.add_argument('--render', type=strToBool, default=False, help='Render the PyBullet GUI or not')
-env_group.add_argument('--workspace_size', type=float, default=0.4, help='Size of the workspace in meters')
-env_group.add_argument('--heightmap_size', type=int, default=128, help='Size of the heightmap in pixels')
+env_group.add_argument('--workspace_size', type=float, default=0.3, help='Size of the workspace in meters')
+env_group.add_argument('--heightmap_size', type=int, default=90, help='Size of the heightmap in pixels')
 env_group.add_argument('--patch_size', type=int, default=24, help='Size of the in-hand image in pixels')
 
 training_group = parser.add_argument_group('training')
