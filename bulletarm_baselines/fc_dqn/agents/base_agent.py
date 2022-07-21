@@ -93,7 +93,7 @@ class BaseAgent:
         """
         raise NotImplementedError
 
-    def forwardFCN(self, states, in_hand, obs, target_net=False, to_cpu=False):
+    def forwardFCN(self, states, in_hand, obs,abs_state, abs_goal, target_net=False, to_cpu=False):
         """
         forward pass the FCN (q1) network. Will do a output head selection based on states
         :param states: gripper state, Bx1
@@ -107,8 +107,10 @@ class BaseAgent:
         in_hand = in_hand.to(self.device)
         padding_width = int((self.padding - obs.size(2)) / 2)
         q1 = self.fcn if not target_net else self.target_fcn
+        abs_state = F.one_hot(abs_state, num_classes=self.num_classes)
+        abs_goal = F.one_hot(abs_goal, num_classes=self.num_classes)
         obs = F.pad(obs, (padding_width, padding_width, padding_width, padding_width), mode='constant', value=0)
-        q_value_maps, obs_encoding = q1(obs, in_hand)
+        q_value_maps, obs_encoding = q1(obs, in_hand,abs_state,abs_goal)
         if padding_width > 0:
             q_value_maps = q_value_maps[torch.arange(0, states.size(0)), states.long(), padding_width: -padding_width, padding_width: -padding_width]
         else:
@@ -191,6 +193,10 @@ class BaseAgent:
         dones = []
         step_lefts = []
         is_experts = []
+        abs_states = []
+        abs_goals = []
+        abs_states_next = []
+        abs_goals_next = []
         for d in batch:
             states.append(d.state)
             images.append(d.obs[0])
@@ -203,6 +209,10 @@ class BaseAgent:
             dones.append(d.done)
             step_lefts.append(d.step_left)
             is_experts.append(d.expert)
+            abs_states.append(d.abs_state)
+            abs_states_next.append(d.abs_state_next)
+            abs_goals.append(d.abs_goal)
+            abs_goals_next.append(d.abs_goal_next)
         states_tensor = torch.stack(states).long().to(self.device)
         image_tensor = torch.stack(images).to(self.device)
         if len(image_tensor.shape) == 3:
@@ -223,6 +233,10 @@ class BaseAgent:
         non_final_masks = (dones_tensor ^ 1).float().to(self.device)
         step_lefts_tensor = torch.stack(step_lefts).to(self.device)
         is_experts_tensor = torch.stack(is_experts).bool().to(self.device)
+        abs_states_tensor = torch.stack(abs_states).to(self.device)
+        abs_states_next_tensor = torch.stack(abs_states_next).to(self.device)
+        abs_goals_tensor = torch.stack(abs_goals).to(self.device)
+        abs_goals_next_tensor = torch.stack(abs_goals_next).to(self.device)
 
         self.loss_calc_dict['batch_size'] = len(batch)
         self.loss_calc_dict['states'] = states_tensor
@@ -234,9 +248,14 @@ class BaseAgent:
         self.loss_calc_dict['non_final_masks'] = non_final_masks
         self.loss_calc_dict['step_lefts'] = step_lefts_tensor
         self.loss_calc_dict['is_experts'] = is_experts_tensor
+        self.loss_calc_dict['abs_states'] = abs_states_tensor
+        self.loss_calc_dict['abs_states_next'] = abs_states_next_tensor        
+        self.loss_calc_dict['abs_goals'] = abs_goals_tensor
+        self.loss_calc_dict['abs_goals_next'] = abs_goals_next_tensor
 
         return states_tensor, (image_tensor, in_hand_tensor), xy_tensor, rewards_tensor, next_states_tensor, \
-               (next_obs_tensor, next_in_hands_tensor), non_final_masks, step_lefts_tensor, is_experts_tensor
+               (next_obs_tensor, next_in_hands_tensor), non_final_masks, step_lefts_tensor, is_experts_tensor, \
+                abs_states_tensor, abs_goals_tensor, abs_states_next_tensor, abs_goals_next_tensor
 
     def _loadLossCalcDict(self):
         """
@@ -253,7 +272,12 @@ class BaseAgent:
         non_final_masks = self.loss_calc_dict['non_final_masks']
         step_lefts = self.loss_calc_dict['step_lefts']
         is_experts = self.loss_calc_dict['is_experts']
-        return batch_size, states, obs, action_idx, rewards, next_states, next_obs, non_final_masks, step_lefts, is_experts
+        abs_states = self.loss_calc_dict['abs_states']
+        abs_states_next = self.loss_calc_dict['abs_states_next']        
+        abs_goals = self.loss_calc_dict['abs_goals']
+        abs_goals_next = self.loss_calc_dict['abs_goals_next']
+        return batch_size, states, obs, action_idx, rewards, next_states, next_obs, non_final_masks,\
+             step_lefts, is_experts, abs_states, abs_goals, abs_states_next, abs_goals_next
 
     def updateTarget(self):
         """

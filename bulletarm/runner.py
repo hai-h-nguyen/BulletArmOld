@@ -429,7 +429,7 @@ class MultiRunner(object):
 
       pbar.set_description(
         '{}/{}, SR: {:.3f}, step time: {:.2f}; avg step time: {:.2f}'
-          .format(s, total, float(s)/total if total !=0 else 0, t, np.mean(step_times))
+          .format(total, planner_episode, float(s)/total if total !=0 else 0, t, np.mean(step_times))
       )
       pbar.update(done_idxes.shape[0])
 

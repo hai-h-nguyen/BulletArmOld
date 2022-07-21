@@ -12,7 +12,7 @@ from bulletarm_baselines.fc_dqn.networks.models import ResUCatShared, CNNShared,
 from bulletarm_baselines.fc_dqn.networks.equivariant_models import EquResUExpand, EquResUDFReg, EquResUDFRegNOut, EquShiftQ2DF3, EquShiftQ2DF3P40, EquResUExpandRegNOut
 from bulletarm_baselines.fc_dqn.networks.models import ResURot, ResUTransport, ResUTransportRegress
 
-def createAgent(test=False):
+def createAgent(num_classes,test=False):
     if half_rotation:
         rz_range = (0, (num_rotations - 1) * np.pi / num_rotations)
     else:
@@ -56,7 +56,8 @@ def createAgent(test=False):
         fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, initialize=initialize).to(device)
     # equivariant asr q1 with dynamic filter using dihedral group
     elif model == 'equ_resu_df_flip':
-        fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, flip=True, initialize=initialize).to(device)
+        print('choose q1 here')
+        fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, flip=True,num_classes=num_classes, initialize=initialize).to(device)
     # equivariant fcn with dynamic filter
     elif model == 'equ_resu_df_nout':
         assert half_rotation
@@ -100,6 +101,7 @@ def createAgent(test=False):
                 q2 = EquShiftQ2DF3P40(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
                                    last_quotient=True, initialize=initialize).to(device)
             else:
+                print('choose q2 here')
                 q2 = EquShiftQ2DF3(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
                                     last_quotient=True, initialize=initialize).to(device)
         ###################################################################################
@@ -120,8 +122,9 @@ def createAgent(test=False):
         if alg.find('asr') > -1:
             # ASR
             if alg == 'dqn_asr':
+                print('agent here')
                 agent = DQN3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                 num_rotations, rz_range)
+                                 num_rotations, rz_range,num_classes=num_classes)
                 agent.initNetwork(fcn, q2)
             elif alg == 'margin_asr':
                 agent = Margin3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,

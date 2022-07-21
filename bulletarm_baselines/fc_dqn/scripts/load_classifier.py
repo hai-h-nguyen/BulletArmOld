@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 
 
-def load_classifier(goal_str):
+def load_classifier(goal_str,num_obj):
 
     # encodes obs of shape Bx1x90x90 into Bx128x5x5
     conv_obs = ConvEncoder({
-        "input_size": [90, 90, 1],
+        "input_size": [128, 128, 1],
         "filter_size": [3, 3, 3, 3],
         "filter_counts": [32, 64, 128, 128],
         "strides": [2, 2, 2, 2],
@@ -59,10 +59,10 @@ def load_classifier(goal_str):
     classifier.to("cuda")
     classifier.eval()
 
-    classifier.load_state_dict(torch.load(f"../classifiers/{goal_str}.pt"))
+    classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
 
     return classifier
 
 
 if __name__ == "__main__":
-    load_classifier(goal_str='1b1r')
+    load_classifier(goal_str='1b1r',num_obj = 2)

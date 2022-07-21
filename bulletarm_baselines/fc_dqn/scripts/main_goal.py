@@ -29,7 +29,7 @@ from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDecon
 from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier
 
 
-ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state goal')
+ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
 def set_seed(s):
     np.random.seed(s)
@@ -43,6 +43,11 @@ def getCurrentObs(in_hand, obs):
     for i, o in enumerate(obs):
         obss.append((o.squeeze(), in_hand[i].squeeze()))
     return obss
+
+def update_abs_goals(abs_states):
+    with torch.no_grad():
+        zeros_goals = torch.zeros_like(abs_states)
+        return torch.max(abs_states - 1, zeros_goals)
 
 def train_step(agent, replay_buffer, logger):
     batch = replay_buffer.sample(batch_size)
@@ -64,7 +69,10 @@ def evaluate(envs, agent, logger):
   if not no_bar:
     eval_bar = tqdm(total=num_eval_episodes)
   while evaled < num_eval_episodes:
-    q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs, 0)
+    # TODO: classifier
+    abs_states = torch.tensor([1,2,3,4,5]).to(device) #self.classify_(obs, in_hands)
+    abs_goals = update_abs_goals(abs_states)
+    q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
     actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
     states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=True)
     rewards = rewards.numpy()
@@ -99,19 +107,14 @@ def train():
     # setup env
     envs = EnvWrapper(num_processes, env, env_config, planner_config)
     eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
-
-    # setup agent
-    print(env_config)
-    # agent = createAgent()
-    # eval_agent = createAgent(test=True)
+    num_objects = envs.getNumObj()
+    num_classes = 2 * num_objects - 1 
+    agent = createAgent(num_classes)
+    eval_agent = createAgent(num_classes,test=True)
 
     # load classifier
-    num_objects = envs.getNumObj()
-    print(num_objects)
-    return
-    classifier = load_classifier('1b1b1r')
+    # classifier = load_classifier('1b1b1r',num_objects)
 
-    return
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
@@ -130,98 +133,46 @@ def train():
     else:
         log_dir = os.path.join(base_dir, log_sub)
 
-    # logger = Logger(log_dir, env, 'train', num_processes, max_episode, log_sub)
-
     hyper_parameters['model_shape'] = agent.getModelStr()
-    # logger = Logger(log_dir, checkpoint_interval=save_freq, hyperparameters=hyper_parameters)
     logger = BaselineLogger(log_dir, checkpoint_interval=save_freq, num_eval_eps=num_eval_episodes, hyperparameters=hyper_parameters, eval_freq=eval_freq)
     logger.saveParameters(hyper_parameters)
 
     if buffer_type == 'expert':
         replay_buffer = QLearningBufferExpert(buffer_size)
     else:
-        replay_buffer = QLearningBuffer(buffer_size)
+        raise NotImplementedError('buffer type in ["expert"]')
+        
     exploration = LinearSchedule(schedule_timesteps=explore, initial_p=init_eps, final_p=final_eps)
+    print(f'explore scheduler for {explore} steps, from {init_eps} to {final_eps}')
 
     states, in_hands, obs = envs.reset()
 
     if load_sub:
         logger.loadCheckPoint(os.path.join(base_dir, load_sub, 'checkpoint'), agent.loadFromState, replay_buffer.loadFromState)
-
+    #------------------------------------- expert transition ----------------------------------------#    
     if planner_episode > 0 and not load_sub:
         if fill_buffer_deconstruct:
             fillDeconstructUsingRunner(agent, replay_buffer)
-        else:
-            planner_envs = envs
-            planner_num_process = num_processes
-            j = 0
-            states, in_hands, obs = planner_envs.reset()
-            s = 0
-            if not no_bar:
-                planner_bar = tqdm(total=planner_episode)
-            local_transitions = [[] for _ in range(planner_num_process)]
-            while j < planner_episode:
-                plan_actions = planner_envs.getNextAction()
-                planner_actions_star_idx, planner_actions_star = agent.getActionFromPlan(plan_actions)
-                planner_actions_star = torch.cat((planner_actions_star, states.unsqueeze(1)), dim=1)
-                states_, in_hands_, obs_, rewards, dones = planner_envs.step(planner_actions_star, auto_reset=True)
-                buffer_obs = getCurrentObs(in_hands, obs)
-                buffer_obs_ = getCurrentObs(in_hands_, obs_)
-                for i in range(planner_num_process):
-                  transition = ExpertTransition(states[i], buffer_obs[i], planner_actions_star_idx[i], rewards[i], states_[i],
-                                                buffer_obs_[i], dones[i], torch.tensor(100), torch.tensor(1))
-                  local_transitions[i].append(transition)
-                states = copy.copy(states_)
-                obs = copy.copy(obs_)
-                in_hands = copy.copy(in_hands_)
+    #------------------------------------- pretrainning with expert ----------------------------------------#    
 
-                for i in range(planner_num_process):
-                  if dones[i] and rewards[i]:
-                    for t in local_transitions[i]:
-                      replay_buffer.add(t)
-                    local_transitions[i] = []
-                    j += 1
-                    s += 1
-                    if not no_bar:
-                      planner_bar.set_description('{:.3f}/{}, AVG: {:.3f}'.format(s, j, float(s) / j if j != 0 else 0))
-                      planner_bar.update(1)
-                  elif dones[i]:
-                    local_transitions[i] = []
-
-        if expert_aug_n > 0:
-            augmentBuffer(replay_buffer, expert_aug_n, agent.rzs)
-        elif expert_aug_d4:
-            augmentBufferD4(replay_buffer, agent.rzs)
-
-    # pre train
-    if pre_train_step > 0:
-        pbar = tqdm(total=pre_train_step)
-        while logger.num_training_steps < pre_train_step:
-            t0 = time.time()
-            train_step(agent, replay_buffer, logger)
-            if not no_bar:
-                pbar.set_description('loss: {:.3f}, time: {:.2f}'.format(float(logger.getCurrentLoss()), time.time()-t0))
-                pbar.update(len(logger.num_training_steps)-pbar.n)
-
-            if (time.time() - start_time) / 3600 > time_limit:
-                logger.saveCheckPoint(agent.getSaveState(), replay_buffer.getSaveState())
-                exit(0)
-        pbar.close()
-        agent.saveModel(os.path.join(logger.models_dir, 'snapshot_{}'.format('pretrain')))
-        # agent.sl = sl
-
+    #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:
         pbar = tqdm(total=max_train_step)
         pbar.set_description('Episodes:0; Reward:0.0; Explore:0.0; Loss:0.0; Time:0.0')
     timer_start = time.time()
-
     while logger.num_training_steps < max_train_step:
         if fixed_eps:
             eps = final_eps
         else:
             eps = exploration.value(logger.num_eps)
         is_expert = 0
-        q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs, eps)
+        # TODO: classifier
+        abs_states = torch.tensor([1,2,3,4,5]).to(device) #self.classify_(obs, in_hands)
+        abs_goals = update_abs_goals(abs_states)
+
+        q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(
+            states, in_hands, obs,abs_states,abs_goals, eps
+            )
 
         buffer_obs = getCurrentObs(in_hands, obs)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
@@ -232,6 +183,15 @@ def train():
                 train_step(agent, replay_buffer, logger)
 
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
+
+        # TODO: classifier
+        abs_states_next = torch.tensor([1,2,3,4,5]).to(device) #self.classify_(obs_, in_hands_)
+        abs_goals_next =  update_abs_goals(abs_states_next)
+        # goals_achieved = (abs_states_next == abs_goals)
+        # rewards = goals_achieved.unsqueeze(1).float() - 1.0
+        # for i in range(num_processes):
+        #     if goals_achieved[i].cpu().item() is False:
+        #         dones[i] = 1.0
 
         done_idxes = torch.nonzero(dones).squeeze(1)
         if done_idxes.shape[0] != 0:
@@ -245,10 +205,14 @@ def train():
 
         for i in range(num_processes):
             replay_buffer.add(
-                ExpertTransition(states[i], buffer_obs[i], actions_star_idx[i], rewards[i], states_[i],
-                                 buffer_obs_[i], dones[i], torch.tensor(100), torch.tensor(is_expert))
+                ExpertTransition(states[i], buffer_obs[i], actions_star_idx[i], rewards[i], 
+                                states_[i], buffer_obs_[i], 
+                                dones[i], #goals_achieved[i], 
+                                torch.tensor(100), torch.tensor(is_expert), 
+                                abs_states[i], abs_goals[i],
+                                abs_states_next[i],abs_goals_next[i])
             )
-        logger.logStep(rewards.numpy(), dones.numpy())
+        logger.logStep(rewards.cpu().numpy(), dones.cpu().numpy())
 
         states = copy.copy(states_)
         obs = copy.copy(obs_)

@@ -11,7 +11,13 @@ sys.path.append('./')
 sys.path.append('..')
 from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
 
-ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert')
+ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
+
+
+def update_abs_goals(abs_states):
+    with torch.no_grad():
+        zeros_goals = torch.zeros_like(abs_states)
+        return torch.max(abs_states - 1, zeros_goals)
 
 def getCurrentObs(in_hand, obs):
     obss = []
@@ -162,6 +168,22 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs) = transition
+    # print(state,next_state, reward, done)
+    # fig, axs = plt.subplots(2,2)
+    # axs[0][0].set_title('in_hand')
+    # axs[0][0].imshow(in_hand)
+    # axs[0][1].set_title('obs')
+    # axs[0][1].imshow(obs)
+    # axs[1][0].set_title('next_in_hand')
+    # axs[1][0].imshow(next_in_hand)
+    # axs[1][1].set_title('next_obs')
+    # axs[1][1].imshow(next_obs)
+    # plt.show()
+    # TODO: classifier
+    abs_state = torch.tensor([1]).to(device) #self.classify_(obs, in_hand)
+    abs_goal = update_abs_goals(abs_state)
+    abs_state_next = torch.tensor([0]).to(device) #self.classify_(next_obs, next_in_hand)
+    abs_goal_next =  update_abs_goals(abs_state_next)
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
       torch.tensor(state).float(),
@@ -170,9 +192,12 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
       torch.tensor(reward).float(),
       torch.tensor(next_state).float(),
       (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
-      torch.tensor(float(done)),
+      torch.tensor(float(done)),#torch.tensor(float(1)),
       torch.tensor(float(0)),
-      torch.tensor(1))
+      torch.tensor(1),
+      abs_state[0], abs_goal[0],
+      abs_state_next[0],abs_goal_next[0]
+      )
     )
   decon_envs.close()
 

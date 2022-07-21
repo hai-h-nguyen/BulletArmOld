@@ -500,11 +500,15 @@ class EquResUExpand(torch.nn.Module):
         out = self.output_layer(feature_map_up_1).tensor
 
         return out, es
-
+# TODO: 
+#----------------------------------------------------------------------------#
 class EquResUDFReg(torch.nn.Module):
     def __init__(self, n_input_channel=1, n_primitives=1, patch_shape=(1, 24, 24), domain_shape=(1, 128, 128), N=8, df_channel=16,
-                 n_middle_channels=(16, 32, 64, 128), kernel_size=3, flip=False, quotient=False, initialize=True):
+                 n_middle_channels=(16, 32, 64, 128), kernel_size=3, flip=False, quotient=False, num_classes = 0, initialize=True):
         assert n_primitives == 2
+        # TODO: change num_obj
+
+        assert num_classes != 0
         super().__init__()
         self.N = N
         if flip:
@@ -536,6 +540,14 @@ class EquResUDFReg(torch.nn.Module):
             n_weight = 4
         elif not quotient and flip:
             n_weight = 12
+        self.num_classes = num_classes
+        self.abs_up = self.create_up_()
+
+        self.filter_up = DynamicFilterFC2(in_shape=(32,24,24), out_n=self.df_channel*self.df_channel*n_weight*self.N + self.df_channel)
+        self.dynamic_filter_up = R2ConvDF(nn.FieldType(self.r2_act, self.df_channel * [self.repr]),
+                                       nn.FieldType(self.r2_act, self.df_channel * [self.repr]),
+                                       kernel_size=3, padding=1)  
+
         self.filter = DynamicFilterFC2(in_shape=patch_shape, out_n=self.df_channel*self.df_channel*n_weight*self.N + self.df_channel)
         self.dynamic_filter = R2ConvDF(nn.FieldType(self.r2_act, self.df_channel * [self.repr]),
                                        nn.FieldType(self.r2_act, self.df_channel * [self.repr]),
@@ -552,7 +564,8 @@ class EquResUDFReg(torch.nn.Module):
                       nn.FieldType(self.r2_act, 1 * [self.r2_act.trivial_repr]), kernel_size=1, initialize=initialize)
         )
 
-    def forward(self, obs, in_hand):
+    def forward(self, obs, in_hand,state_abs, goal_abs):
+        sg_abs = torch.cat((state_abs, goal_abs), dim=-1)
         feature_map_1, feature_map_2, feature_map_4, feature_map_8, feature_map_16 = self.unet.forwardEncoder(obs)
 
         es_i = self.group_pool(feature_map_16).tensor
@@ -562,6 +575,22 @@ class EquResUDFReg(torch.nn.Module):
         feature_map_up_1 = self.unet.forwardDecoder(feature_map_1, feature_map_2, feature_map_4, feature_map_8, feature_map_16)
 
         batch_size = obs.shape[0]
+
+        #####################################################
+        sg_abs_up = self.abs_up(sg_abs.float())
+        sg_abs_up = sg_abs_up.unsqueeze(dim=-1).unsqueeze(dim=-1)
+        sg_abs_up = sg_abs_up.repeat(1, 1, 24, 24)
+        weight_bias_up = self.filter_up(sg_abs_up)
+        df_outputs = []
+        for i in range(batch_size):
+            weight = weight_bias_up[i, :-self.df_channel]
+            bias = weight_bias_up[i, -self.df_channel:]
+            df_outputs.append(self.dynamic_filter_up.forwardDynamicFilter(feature_map_up_1[i:i + 1], weight, bias).tensor)
+        feature_map_up_1 = torch.cat(df_outputs)
+        feature_map_up_1 = F.relu(feature_map_up_1)
+        feature_map_up_1 = nn.GeometricTensor(feature_map_up_1, nn.FieldType(self.r2_act, self.df_channel * [self.repr]))
+        #####################################################
+
         place_feature = feature_map_up_1
         weight_bias = self.filter(in_hand)
 
@@ -580,6 +609,22 @@ class EquResUDFReg(torch.nn.Module):
         out = torch.cat((pick_q_values.tensor, place_q_values.tensor), dim=1)
         return out, es
 
+    def create_up_(self):
+        
+        fc1 = torch.nn.Linear(2 * self.num_classes, 256, bias=True)
+
+        torch.nn.init.kaiming_normal_(fc1.weight, mode="fan_in", nonlinearity="relu")
+        torch.nn.init.constant_(fc1.bias, 0)
+
+        fc2 = torch.nn.Linear(256, 32, bias=True)
+
+        torch.nn.init.kaiming_normal_(fc2.weight, mode="fan_in", nonlinearity="relu")
+        torch.nn.init.constant_(fc2.bias, 0)
+
+        down = torch.nn.Sequential(fc1, fc2)
+
+        return down
+#----------------------------------------------------------------------------#
 class EquResU(torch.nn.Module):
     def __init__(self, n_input_channel=1, n_primitives=1, patch_shape=(1, 24, 24), domain_shape=(1, 128, 128), N=8,
                  n_middle_channels=(16, 32, 64, 128), kernel_size=3, flip=False, quotient=False, initialize=True):

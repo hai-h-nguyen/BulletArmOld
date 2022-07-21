@@ -8,12 +8,14 @@ from bulletarm_baselines.fc_dqn.utils import torch_utils
 
 class DQN3DASR(Base3D):
     def __init__(self, workspace, heightmap_size, device, lr=1e-4, gamma=0.9, sl=False, num_primitives=1,
-                 patch_size=24, num_rz=8, rz_range=(0, 7*np.pi/8)):
+                 patch_size=24, num_rz=8, rz_range=(0, 7*np.pi/8),num_classes=0):
         super().__init__(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size, num_rz, rz_range)
+        assert num_classes != 0
         self.num_rz = num_rz
         self.rzs = torch.from_numpy(np.linspace(rz_range[0], rz_range[1], num_rz)).float()
         self.a2_size = num_rz
-
+        # TODO: change num_obj
+        self.num_classes = num_classes
         self.q2 = None
         self.target_q2 = None
         self.q2_optimizer = None
@@ -62,13 +64,12 @@ class DQN3DASR(Base3D):
         action_idx = torch.cat((pixels, rz_id), dim=1)
         return action_idx, actions
 
-    def getEGreedyActions(self, states, in_hand, obs, eps, coef=0.):
+    def getEGreedyActions(self, states, in_hand, obs, abs_states, abs_goals, eps, coef=0.):
         with torch.no_grad():
-            q_value_maps, obs_encoding = self.forwardFCN(states, in_hand, obs, to_cpu=True)
+            q_value_maps, obs_encoding = self.forwardFCN(states, in_hand, obs,abs_states,abs_goals, to_cpu=True)
             pixels = torch_utils.argmax2d(q_value_maps).long()
             q2_output = self.forwardQ2(states, in_hand, obs, obs_encoding, pixels, to_cpu=True)
             a2_id = torch.argmax(q2_output, 1)
-
         rand = torch.tensor(np.random.uniform(0, 1, states.size(0)))
         rand_mask = rand < eps
 
@@ -90,7 +91,8 @@ class DQN3DASR(Base3D):
         return q_value_maps, action_idx, actions
 
     def calcTDLoss(self):
-        batch_size, states, obs, action_idx, rewards, next_states, next_obs, non_final_masks, step_lefts, is_experts = self._loadLossCalcDict()
+        batch_size, states, obs, action_idx, rewards, next_states, next_obs, non_final_masks, step_lefts, is_experts,\
+            abs_states, abs_goals, abs_states_next, abs_goals_next = self._loadLossCalcDict()
         pixel = action_idx[:, 0:2]
         a2_idx = action_idx[:, 2:3]
 
@@ -98,7 +100,7 @@ class DQN3DASR(Base3D):
             q_target = self.gamma ** step_lefts
         else:
             with torch.no_grad():
-                q1_map_prime, obs_prime_encoding = self.forwardFCN(next_states, next_obs[1], next_obs[0], target_net=True)
+                q1_map_prime, obs_prime_encoding = self.forwardFCN(next_states, next_obs[1], next_obs[0],abs_states_next,abs_goals_next, target_net=True)
                 x_star = torch_utils.argmax2d(q1_map_prime)
                 q2_prime = self.forwardQ2(next_states, next_obs[1], next_obs[0], obs_prime_encoding, x_star, target_net=True)
 
@@ -107,7 +109,7 @@ class DQN3DASR(Base3D):
 
         self.loss_calc_dict['q_target'] = q_target
 
-        q1_output, obs_encoding = self.forwardFCN(states, obs[1], obs[0])
+        q1_output, obs_encoding = self.forwardFCN(states, obs[1], obs[0],abs_states,abs_goals)
         q1_pred = q1_output[torch.arange(0, batch_size), pixel[:, 0], pixel[:, 1]]
         q2_output = self.forwardQ2(states, obs[1], obs[0], obs_encoding, pixel)
         q2_pred = q2_output[torch.arange(batch_size), a2_idx[:, 0]]
