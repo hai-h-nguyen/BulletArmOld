@@ -219,6 +219,18 @@ class BaseEnv:
     # Step simulation
     pb.stepSimulation()
 
+  def _visualize_workspace(self):
+    ws = self.workspace
+    p1 = np.asarray([ws[0][0], ws[1][0], 0])  # xmin,ymin
+    p2 = np.asarray([ws[0][1], ws[1][0], 0])  # xmax,ymin
+    p3 = np.asarray([ws[0][1], ws[1][1], 0])  # xmin,ymin
+    p4 = np.asarray([ws[0][0], ws[1][1], 0])  # xmax,ymin
+
+    pb.addUserDebugLine(p1, p2, lineColorRGB=[0, 0, 1], lineWidth=2.0, lifeTime=0)        
+    pb.addUserDebugLine(p3, p4, lineColorRGB=[0, 0, 1], lineWidth=2.0, lifeTime=0)        
+    pb.addUserDebugLine(p1, p4, lineColorRGB=[0, 0, 1], lineWidth=2.0, lifeTime=0)        
+    pb.addUserDebugLine(p2, p3, lineColorRGB=[0, 0, 1], lineWidth=2.0, lifeTime=0)    
+
   def resetPybulletWorkspace(self):
     '''
     Reset the PyBullet world to just contain the robot.
@@ -374,6 +386,8 @@ class BaseEnv:
     else:
       motion_primative, x, y, z, rot = self._decodeAction(action)
       in_hand_img = self.getInHandImage(old_heightmap, x, y, z, rot, self.heightmap)
+
+    self._visualize_workspace()
 
     return self._isHolding(), in_hand_img, self.heightmap.reshape([1, self.heightmap_size, self.heightmap_size])
 
