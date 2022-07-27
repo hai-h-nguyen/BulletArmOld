@@ -2,6 +2,7 @@
 docs/html
 docs/doctrees
 Pipfile.lock
+wandb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
