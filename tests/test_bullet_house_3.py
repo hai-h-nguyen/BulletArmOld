@@ -3,21 +3,28 @@ import time
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-
+from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier,block_stacking_perfect_classifier
 from bulletarm import env_factory
+
+def get_cls(classifier, obs, inhand):
+    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
+    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    res = classifier([obs,inhand])
+    return res#torch.argmax(res,dim=0)
 
 class TestBulletHouse3(unittest.TestCase):
   env_config = {}
   planner_config = {'pos_noise': 0, 'rot_noise': 0}
 
   def testPlanner(self):
-    # env = createHouseBuilding3Env(PyBulletEnv, self.env_config)()
+    classifier = load_classifier('2b1l2r',use_equivariant=False)
+    self.env_config['render'] = True
     env = env_factory.createEnvs(1,  'house_building_3', self.env_config, self.planner_config)
-    env.reset()
+    (states_, in_hands_, obs_) = env.reset()
     for i in range(5, -1, -1):
       action = env.getNextAction()
+      print(get_cls(classifier,obs_,in_hands_))
       (states_, in_hands_, obs_), rewards, dones = env.step(action, auto_reset=False)
-      self.assertEqual(env.getStepsLeft(), i)
     env.close()
 
 
@@ -291,3 +298,7 @@ class TestBulletHouse3(unittest.TestCase):
     self.assertEqual(env.getStepsLeft(), 0)
 
     env.close()
+
+if __name__ == '__main__':
+  env = TestBulletHouse3()
+  env.testPlanner()

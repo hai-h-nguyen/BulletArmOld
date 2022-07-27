@@ -30,53 +30,11 @@ from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier
+from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier,block_stacking_perfect_classifier
 
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
-class block_stacking_perfect_classifier(nn.Module):
-  def __init__(self):
-
-    super(block_stacking_perfect_classifier, self).__init__()
-  
-  def check_equal(self, a ,b):
-    return abs(a-b)<0.001
-
-  def forward(self,obs,inhand):
-    len = obs.shape[0]
-    res = []
-    for i in range(len):
-        obs_height = torch.max(obs[i])
-        in_hand_height = torch.max(inhand[i])
-        if (not (self.check_equal(in_hand_height,0) or self.check_equal(in_hand_height,0.03))):
-            in_hand_height = torch.tensor(0.03)
-
-        if (self.check_equal(obs_height,0.03) and self.check_equal(in_hand_height,0)):
-            res.append(6)
-            continue
-        if (self.check_equal(obs_height,0.03) and self.check_equal(in_hand_height,0.03)):
-            res.append(5)
-            continue
-        if (self.check_equal(obs_height,0.06) and self.check_equal(in_hand_height,0)):
-            res.append(4)
-            continue
-        if (self.check_equal(obs_height,0.06) and self.check_equal(in_hand_height,0.03)):
-            res.append(3)
-            continue
-        if (self.check_equal(obs_height,0.09) and self.check_equal(in_hand_height,0)):
-            res.append(2)
-            continue
-        if (self.check_equal(obs_height,0.09) and self.check_equal(in_hand_height,0.03)):
-            res.append(1)
-            continue
-        if (self.check_equal(obs_height,0.12) and self.check_equal(in_hand_height,0)):
-            res.append(0)
-            continue
-        res.append(6)
-        # raise NotImplementedError(f'error classifier with obs_height = {obs_height}, in_hand_height = {in_hand_height}')
-        
-    return torch.tensor(res).to(device)
 
 
 def set_seed(s):
@@ -109,6 +67,11 @@ def saveModelAndInfo(logger, agent):
     logger.exportData()
     agent.saveModel(os.path.join(logger.models_dir, 'snapshot'))
 
+def get_cls(classifier, obs, inhand):
+    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
+    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    res = classifier([obs,inhand])
+    return torch.argmax(res,dim=0)
 
 def evaluate(envs, agent, wandb_logs,classifier,num_steps):
     states, in_hands, obs = envs.reset()
@@ -118,7 +81,7 @@ def evaluate(envs, agent, wandb_logs,classifier,num_steps):
     if not no_bar:
         eval_bar = tqdm(total=num_eval_episodes)
     while evaled < num_eval_episodes:
-        abs_states = classifier(obs, in_hands)
+        abs_states = get_cls(classifier, obs, in_hands)
         abs_goals = update_abs_goals(abs_states)
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
@@ -141,8 +104,6 @@ def evaluate(envs, agent, wandb_logs,classifier,num_steps):
     if not no_bar:
         eval_bar.close()
     
-    
-
 def Wandb_logging(key, value, step_idx,wandb_logs):
     if (wandb_logs):
         try:
@@ -154,7 +115,7 @@ def train(wandb_logs = True):
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group='DQN_ASR_goal_10', name='s3', entity='hmhuy')
+        group='DQN_ASR_goal_200', name='s0', entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -171,7 +132,8 @@ def train(wandb_logs = True):
     eval_agent = createAgent(num_classes,test=True)
 
     # load classifier
-    classifier = block_stacking_perfect_classifier()
+    # classifier = block_stacking_perfect_classifier()
+    classifier = load_classifier(goal_str = '2b1l2r',use_equivariant = False)
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
@@ -237,7 +199,7 @@ def train(wandb_logs = True):
         else:
             eps = exploration.value(logger.num_eps)
         is_expert = 0
-        abs_states = classifier(obs, in_hands)
+        abs_states = get_cls(classifier,obs,in_hands)
         abs_goals = update_abs_goals(abs_states)
         for i in range(num_processes):
             total_goal[abs_goals[i]] += 1
@@ -257,7 +219,8 @@ def train(wandb_logs = True):
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
 
-        abs_states_next = classifier(obs_, in_hands_)
+        # abs_states_next = classifier([torch.tensor(obs_).type(torch.cuda.FloatTensor).to('cuda'), torch.tensor(in_hands_).type(torch.cuda.FloatTensor).to('cuda')])
+        abs_states_next = get_cls(classifier, obs_, in_hands_)
         abs_goals_next =  update_abs_goals(abs_states_next)
         goals_achieved = (abs_states_next == abs_goals)
         rewards = goals_achieved.unsqueeze(1).float() - 1.0

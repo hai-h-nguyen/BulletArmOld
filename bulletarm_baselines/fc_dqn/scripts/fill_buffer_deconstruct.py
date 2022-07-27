@@ -143,6 +143,12 @@ def fillDeconstruct(agent, replay_buffer):
     pbar.close()
     envs.close()
 
+def get_cls(classifier, obs, inhand):
+    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
+    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    res = classifier([obs,inhand])
+    return torch.argmax(res,dim=0)
+
 def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   if env in ['block_stacking',
              'house_building_1',
@@ -180,9 +186,9 @@ def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
     # axs[1][1].imshow(next_obs)
     # plt.show()
     # TODO: classifier
-    abs_state = classifier(torch.tensor(obs.reshape(1,1,128,128)), torch.tensor(in_hand.reshape(1,1,24,24)))
+    abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
     abs_goal = update_abs_goals(abs_state)
-    abs_state_next = classifier(torch.tensor(next_obs.reshape(1,1,128,128)),torch.tensor(next_in_hand.reshape(1,1,24,24)))
+    abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128), next_in_hand.reshape(1,1,24,24))
     abs_goal_next =  update_abs_goals(abs_state_next)
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
