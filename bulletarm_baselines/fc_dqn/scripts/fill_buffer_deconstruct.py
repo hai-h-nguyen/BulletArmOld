@@ -143,7 +143,7 @@ def fillDeconstruct(agent, replay_buffer):
     pbar.close()
     envs.close()
 
-def fillDeconstructUsingRunner(agent, replay_buffer):
+def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   if env in ['block_stacking',
              'house_building_1',
              'house_building_2',
@@ -180,9 +180,9 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
     # axs[1][1].imshow(next_obs)
     # plt.show()
     # TODO: classifier
-    abs_state = torch.tensor([1]).to(device) #self.classify_(obs, in_hand)
+    abs_state = classifier(torch.tensor(obs.reshape(1,1,128,128)), torch.tensor(in_hand.reshape(1,1,24,24)))
     abs_goal = update_abs_goals(abs_state)
-    abs_state_next = torch.tensor([0]).to(device) #self.classify_(next_obs, next_in_hand)
+    abs_state_next = classifier(torch.tensor(next_obs.reshape(1,1,128,128)),torch.tensor(next_in_hand.reshape(1,1,24,24)))
     abs_goal_next =  update_abs_goals(abs_state_next)
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
@@ -192,7 +192,10 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
       torch.tensor(reward).float(),
       torch.tensor(next_state).float(),
       (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
-      torch.tensor(float(done)),#torch.tensor(float(1)),
+      #------------------#
+    #   torch.tensor(float(done)),
+      torch.tensor(float(1)),
+      #------------------#
       torch.tensor(float(0)),
       torch.tensor(1),
       abs_state[0], abs_goal[0],

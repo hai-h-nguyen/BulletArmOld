@@ -2,10 +2,54 @@ import unittest
 import time
 import numpy as np
 from tqdm import tqdm
+import torch
+from torch import nn
+from bulletarm_baselines.fc_dqn.utils.parameters import *
 
 import matplotlib.pyplot as plt
 
 from bulletarm import env_factory
+
+class block_stacking_perfect_classifier(nn.Module):
+  def __init__(self):
+
+    super(block_stacking_perfect_classifier, self).__init__()
+  
+  def check_equal(self, a ,b):
+    return abs(a-b)<0.001
+
+  def forward(self,obs,inhand):
+    len = obs.shape[0]
+    res = []
+    for i in range(len):
+      obs_height = np.max(obs[i])
+      in_hand_height = np.max(inhand[i])
+      if (self.check_equal(obs_height,0.03) and self.check_equal(in_hand_height,0)):
+        res.append(6)
+        continue
+      if (self.check_equal(obs_height,0.03) and self.check_equal(in_hand_height,0.03)):
+        res.append(5)
+        continue
+      if (self.check_equal(obs_height,0.06) and self.check_equal(in_hand_height,0)):
+        res.append(4)
+        continue
+      if (self.check_equal(obs_height,0.06) and self.check_equal(in_hand_height,0.03)):
+        res.append(3)
+        continue
+      if (self.check_equal(obs_height,0.09) and self.check_equal(in_hand_height,0)):
+        res.append(2)
+        continue
+      if (self.check_equal(obs_height,0.09) and self.check_equal(in_hand_height,0.03)):
+        res.append(1)
+        continue
+      if (self.check_equal(obs_height,0.12) and self.check_equal(in_hand_height,0)):
+        res.append(0)
+        continue
+      raise NotImplementedError(f'error classifier with obs_height = {obs_height}, in_hand_height = {in_hand_height}')
+    
+    return torch.tensor(res).to(device)
+
+
 
 class TestBulletBlockStacking(unittest.TestCase):
   env_config = {'num_objects': 4}
@@ -14,14 +58,18 @@ class TestBulletBlockStacking(unittest.TestCase):
 
   def testPlanner(self):
     self.env_config['render'] = True
-    env = env_factory.createEnvs(1, 'block_stacking', self.env_config, self.planner_config)
-    env.reset()
+    env = env_factory.createEnvs(5, 'block_stacking', self.env_config, self.planner_config)
+    classifer = block_stacking_perfect_classifier()
+    (states_, in_hands_, obs_) = env.reset()
+    print(states_,in_hands_.shape,obs_.shape)
+    abs_state = (4)*2 - 2 
     for i in range(5, -1, -1):
       action = env.getNextAction()
+      print(classifer(obs_,in_hands_),abs_state)
       (states_, in_hands_, obs_), rewards, dones = env.step(action, auto_reset=False)
-      self.assertEqual(env.getStepsLeft(), i)
-    self.assertEqual(rewards, 1)
-    self.assertEqual(dones, 1)
+      abs_state -= 1
+    print(classifer(obs_,in_hands_),abs_state)
+    print(f'success at state {abs_state}')
     env.close()
 
   def testPlanner2(self):
@@ -52,3 +100,6 @@ class TestBulletBlockStacking(unittest.TestCase):
       pbar.update(dones.sum())
     env.close()
 
+if __name__ == '__main__':
+  env = TestBulletBlockStacking()
+  env.testPlanner()

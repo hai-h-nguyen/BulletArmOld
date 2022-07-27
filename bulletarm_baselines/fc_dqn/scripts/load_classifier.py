@@ -63,6 +63,6 @@ def load_classifier(goal_str,num_obj):
 
     return classifier
 
-
+  
 if __name__ == "__main__":
     load_classifier(goal_str='1b1r',num_obj = 2)

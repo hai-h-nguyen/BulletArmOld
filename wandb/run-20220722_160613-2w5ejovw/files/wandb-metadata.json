@@ -1,0 +1,30 @@
+{
+    "os": "Linux-5.15.0-41-generic-x86_64-with-debian-bullseye-sid",
+    "python": "3.7.13",
+    "heartbeatAt": "2022-07-22T09:06:14.433572",
+    "startedAt": "2022-07-22T09:06:13.380147",
+    "docker": null,
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "gpu_count": 1,
+    "cpu_count": 12,
+    "cuda": null,
+    "args": [
+        "--algorithm=dqn",
+        "--architecture=equi_asr",
+        "--env=block_stacking",
+        "--fill_buffer_deconstruct",
+        "--planner_episode=200"
+    ],
+    "state": "running",
+    "program": "bulletarm_baselines/fc_dqn/scripts/main_goal.py",
+    "codePath": "bulletarm_baselines/fc_dqn/scripts/main_goal.py",
+    "git": {
+        "remote": "https://github.com/hai-h-nguyen/BulletArm.git",
+        "commit": "cef1b9786e9c0baaeb509411275e0455cf4da20c"
+    },
+    "email": "hmhuy00@gmail.com",
+    "root": "/home/huy/Desktop/RL-research/BulletArm",
+    "host": "huy-B460-AORUS-PRO-AC",
+    "username": "huy",
+    "executable": "/home/huy/anaconda3/envs/bullet-arm/bin/python"
+}
