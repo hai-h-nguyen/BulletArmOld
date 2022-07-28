@@ -113,3 +113,8 @@ output/
 .mypy_cache/
 
 .idea/
+
+*.zip
+*.h5
+*.pt
+save/

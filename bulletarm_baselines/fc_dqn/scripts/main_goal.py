@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
+import time
 import os
 import sys
 import time
@@ -7,7 +8,7 @@ import copy
 import math
 import collections
 from tqdm import tqdm
-import datetime
+from datetime import datetime
 import threading
 
 import torch
@@ -31,11 +32,16 @@ from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentB
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner
 
 from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier,block_stacking_perfect_classifier
+from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects, decompose_objects
 
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
-
+def create_folder(path):
+    try:
+        os.mkdir(path)
+    except:
+        print(f'[INFO] folder {path} existed, can not create new')
 
 def set_seed(s):
     np.random.seed(s)
@@ -68,21 +74,50 @@ def saveModelAndInfo(logger, agent):
     agent.saveModel(os.path.join(logger.models_dir, 'snapshot'))
 
 def get_cls(classifier, obs, inhand):
-    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
-    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    obs = obs.clone().detach().type(torch.cuda.FloatTensor).to('cuda')
+    inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to('cuda')
     res = classifier([obs,inhand])
-    return torch.argmax(res,dim=0)
+    return torch.argmax(res,dim=1)
 
-def evaluate(envs, agent, wandb_logs,classifier,num_steps):
+def evaluate(envs, agent, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
+    goal_str = '2b1l2r'
     states, in_hands, obs = envs.reset()
     evaled = 0
     total_return = 0
     temp_reward = [[] for _ in range(num_eval_processes)]
     if not no_bar:
         eval_bar = tqdm(total=num_eval_episodes)
+    
+    if debug:
+        dataset = ListDataset()
+        create_folder('check_debug_collect_image')
+
+    cnt = 0
     while evaled < num_eval_episodes:
         abs_states = get_cls(classifier, obs, in_hands)
         abs_goals = update_abs_goals(abs_states)
+        if (render):
+            print(abs_states,abs_goals)
+            time.sleep(1)
+
+        if (debug):
+            for i in range(abs_states.shape[0]):
+                dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
+                dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
+                dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
+                dataset.add("ABS_STATE_INDEX", abs_states[i].cpu().detach().numpy().astype(np.int32))
+                plt.figure(figsize=(15,4))
+                plt.subplot(1,2,1)
+                plt.imshow(obs[i].reshape(128,128), cmap='gray')
+                plt.colorbar()
+                plt.subplot(1,2,2)
+                plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
+                plt.colorbar()
+                plt.suptitle(f"Label: {abs_states[i]}, State: {states[i]}")
+                plt.savefig(f'check_debug_collect_image/image_{cnt}.png')
+                plt.close()
+                cnt += 1
+
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
         states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=True)
@@ -97,9 +132,24 @@ def evaluate(envs, agent, wandb_logs,classifier,num_steps):
         for i, d in enumerate(dones.astype(bool)):
             if d:
                 total_return += temp_reward[i][-1]
+                if(render):
+                    print('return is',temp_reward[i][-1])
                 temp_reward[i] = []
         if not no_bar:
             eval_bar.update(evaled - eval_bar.n)
+
+    if (debug):
+        dataset = dataset.to_array_dataset({
+            "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
+            "ABS_STATE_INDEX": np.int32,
+        })
+        dataset.metadata = {
+            "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
+        }
+        print('get',dataset.size,'data samples')
+        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{goal_str}.h5")
+
+    print(f'evaluate results: {total_return/num_eval_episodes}')
     Wandb_logging(f'mean evaluate return',total_return/num_eval_episodes,num_steps,wandb_logs)
     if not no_bar:
         eval_bar.close()
@@ -112,6 +162,7 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
             pass
 
 def train(wandb_logs = True):
+    print(f'trainning for {max_train_step} step')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
@@ -147,7 +198,7 @@ def train(wandb_logs = True):
         base_dir += note
     if not log_sub:
         timestamp = time.time()
-        timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d.%H:%M:%S')
+        timestamp = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d.%H:%M:%S')
         log_dir = os.path.join(base_dir, timestamp)
     else:
         log_dir = os.path.join(base_dir, log_sub)
@@ -278,7 +329,7 @@ def train(wandb_logs = True):
             if eval_thread is not None:
                 eval_thread.join()
             eval_agent.copyNetworksFrom(agent)
-            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent, wandb_logs,classifier,logger.num_steps))
+            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent, wandb_logs,classifier,logger.num_steps,False))
             eval_thread.start()
 
         if logger.num_steps % (num_processes * save_freq) == 0:
@@ -294,3 +345,20 @@ def train(wandb_logs = True):
 
 if __name__ == '__main__':
     train()
+
+    #------------- eval ------------#
+    # load_model_pre = 'output/dqn_asr_equ_resu_df_flip_house_building_3/2022-07-28.12:48:32/models/'
+    # classifier = load_classifier(goal_str = '2b1l2r',use_equivariant = False)
+    # render = False
+
+    # env_config['render'] = render
+    # eval_envs = EnvWrapper(2, env, env_config, planner_config)
+    # num_objects = eval_envs.getNumObj()
+    # num_classes = 2 * num_objects - 1 
+    # eval_agent = createAgent(num_classes,test=True)
+    # eval_agent.train()
+    # if load_model_pre:
+    #     eval_agent.loadModel(load_model_pre)
+    # eval_agent.eval()
+    # evaluate(envs=eval_envs,agent=eval_agent,classifier=classifier, debug=True,render=render)
+    # eval_envs.close()

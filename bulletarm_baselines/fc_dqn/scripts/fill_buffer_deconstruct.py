@@ -147,7 +147,7 @@ def get_cls(classifier, obs, inhand):
     obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
     inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
     res = classifier([obs,inhand])
-    return torch.argmax(res,dim=0)
+    return torch.argmax(res,dim=1)
 
 def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   if env in ['block_stacking',

@@ -121,4 +121,4 @@ def collect(goal_str= "1b1b1r", num_samples=10000, debug=False):
         print("DONE!!!")
 
 if __name__ == '__main__':
-    collect(goal_str='2b1l2r', num_samples=20000, debug=True)
+    collect(goal_str='2b1l2r', num_samples=20000, debug=False)

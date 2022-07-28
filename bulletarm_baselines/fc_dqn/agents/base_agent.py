@@ -292,7 +292,7 @@ class BaseAgent:
         :param path_pre: path prefix to the model
         """
         for i in range(len(self.networks)):
-            path = path_pre + '_q{}.pt'.format(i)
+            path = path_pre + 'snapshot_q{}.pt'.format(i)
             print('loading {}'.format(path))
             self.networks[i].load_state_dict(torch.load(path))
         self.updateTarget()

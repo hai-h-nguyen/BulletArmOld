@@ -10,7 +10,7 @@ def get_cls(classifier, obs, inhand):
     obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
     inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
     res = classifier([obs,inhand])
-    return res#torch.argmax(res,dim=0)
+    return torch.argmax(res,dim=1)
 
 class TestBulletHouse3(unittest.TestCase):
   env_config = {}
@@ -19,12 +19,14 @@ class TestBulletHouse3(unittest.TestCase):
   def testPlanner(self):
     classifier = load_classifier('2b1l2r',use_equivariant=False)
     self.env_config['render'] = True
-    env = env_factory.createEnvs(1,  'house_building_3', self.env_config, self.planner_config)
+    env = env_factory.createEnvs(5,  'house_building_3', self.env_config, self.planner_config)
     (states_, in_hands_, obs_) = env.reset()
     for i in range(5, -1, -1):
       action = env.getNextAction()
       print(get_cls(classifier,obs_,in_hands_))
       (states_, in_hands_, obs_), rewards, dones = env.step(action, auto_reset=False)
+    print(get_cls(classifier,obs_,in_hands_))
+    
     env.close()
 
 
