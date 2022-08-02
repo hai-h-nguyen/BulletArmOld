@@ -1,10 +1,14 @@
+from asyncio.log import logger
 import sys
 import time
 import copy
 import collections
 import torch
+from datetime import datetime
 from tqdm import tqdm
 from bulletarm_baselines.fc_dqn.utils.parameters import *
+from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset
+from bulletarm import env_factory
 import matplotlib.pyplot as plt
 
 sys.path.append('./')
@@ -143,13 +147,7 @@ def fillDeconstruct(agent, replay_buffer):
     pbar.close()
     envs.close()
 
-def get_cls(classifier, obs, inhand):
-    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
-    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
-    res = classifier([obs,inhand])
-    return torch.argmax(res,dim=1)
-
-def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
+def fillDeconstructUsingRunner(agent, replay_buffer):
   if env in ['block_stacking',
              'house_building_1',
              'house_building_2',
@@ -186,9 +184,9 @@ def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
     # axs[1][1].imshow(next_obs)
     # plt.show()
     # TODO: classifier
-    abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
+    abs_state = torch.tensor([1]).to(device) #self.classify_(obs, in_hand)
     abs_goal = update_abs_goals(abs_state)
-    abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128), next_in_hand.reshape(1,1,24,24))
+    abs_state_next = torch.tensor([0]).to(device) #self.classify_(next_obs, next_in_hand)
     abs_goal_next =  update_abs_goals(abs_state_next)
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
@@ -198,10 +196,7 @@ def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
       torch.tensor(reward).float(),
       torch.tensor(next_state).float(),
       (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
-      #------------------#
-    #   torch.tensor(float(done)),
-      torch.tensor(float(1)),
-      #------------------#
+      torch.tensor(float(done)),#torch.tensor(float(1)),
       torch.tensor(float(0)),
       torch.tensor(1),
       abs_state[0], abs_goal[0],
@@ -210,5 +205,104 @@ def fillDeconstructUsingRunner(agent, replay_buffer,classifier):
     )
   decon_envs.close()
 
+def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debug=False):
+    if env in ['block_stacking',
+             'house_building_1',
+             'house_building_2',
+             'house_building_3',
+             'house_building_4',
+             'improvise_house_building_2',
+             'improvise_house_building_3',
+             'improvise_house_building_discrete',
+             'improvise_house_building_random',
+             'ramp_block_stacking',
+             'ramp_house_building_1',
+             'ramp_house_building_2',
+             'ramp_house_building_3',
+             'ramp_house_building_4',
+             'ramp_improvise_house_building_2',
+             'ramp_improvise_house_building_3']:
+        deconstruct_env = env + '_deconstruct'
+        decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+    elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
+                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r']:
+        deconstruct_env = 'house_building_x' + '_deconstruct'
+        env_config['goal_string'] = env
+    else:
+        raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
+    print(f'==================\t Creating success {env}\t===================')
+    decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+    num_objects = decon_envs.getNumObj()
+    num_classes = 2*num_objects-1
+
+    num_episodes = num_samples // num_classes
+    dataset = ListDataset()
+
+    if debug:
+        obss = []
+        inhands = []
+        labels = []
+        states = []
+        num_episodes = 10
+    transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
+    decon_envs.close()
+    transitions.reverse()
+    print(len(transitions))
+    true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
+    perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[0] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
+    print(len(true_index))
+    print(len(perfect_index))
+    # exit()
+    for i in perfect_index:
+        for j in range(num_classes-1, 0, -1):
+        
+            if debug:
+                states.append(transitions[i-j+1][0][0])
+                obss.append(transitions[i-j+1][0][2])
+                inhands.append(transitions[i-j+1][0][1])
+                labels.append(j)
+            dataset.add("HAND_BITS", transitions[i-j+1][0][0])
+            dataset.add("OBS", transitions[i-j+1][0][2])
+            dataset.add("HAND_OBS", transitions[i-j+1][0][1])
+            dataset.add("DONES", j)
+            dataset.add("ABS_STATE_INDEX", j)
+                
+            if j == 1:
+                if debug:
+                    states.append(transitions[i][4][0])
+                    obss.append(transitions[i][4][2])
+                    inhands.append(transitions[i][4][1])
+                    labels.append(0)
+                dataset.add("HAND_BITS", transitions[i][4][0])
+                dataset.add("OBS", transitions[i][4][2])
+                dataset.add("HAND_OBS", transitions[i][4][1])
+                dataset.add("DONES", 1)
+                dataset.add("ABS_STATE_INDEX", 0)
+    if debug:
+        for i in range(len(states)):
+            plt.figure(figsize=(15,4))
+            plt.subplot(1,2,1)
+            plt.imshow(obss[i], cmap='gray')
+            plt.colorbar()
+            plt.subplot(1,2,2)
+            plt.imshow(inhands[i], cmap='gray')
+            plt.colorbar()
+            plt.suptitle(f"Label: {labels[i]}, State: {states[i]}")
+            plt.savefig(f'check_debug_collect_image/image_{i}.png')
+        exit()
+            
+    dataset = dataset.to_array_dataset({
+        "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
+        "DONES": np.bool,
+        "ABS_STATE_INDEX": np.int32,
+    })
+    dataset.metadata = {
+        "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
+    }
+    print(dataset.size)
+    dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
+
+    print("DONE!!!")
+
 if __name__ == '__main__':
-    fillDeconstruct()
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=1000, debug=True)
