@@ -3,8 +3,9 @@ docs/html
 docs/doctrees
 Pipfile.lock
 wandb/
-check_debug_collect_image/
+check_collect_image/
 Loss_and_Acc/
+bulletarm_baselines/fc_dqn/classifiers/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

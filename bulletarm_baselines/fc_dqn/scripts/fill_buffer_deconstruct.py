@@ -8,7 +8,6 @@ from datetime import datetime
 from tqdm import tqdm
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset
-from bulletarm import env_factory
 import matplotlib.pyplot as plt
 
 sys.path.append('./')
@@ -230,7 +229,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         env_config['goal_string'] = env
     else:
         raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
-    print(f'==================\t Creating success {env}\t===================')
+    print(f'==================\t Collecting {env} dataset\t===================')
     decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     num_objects = decon_envs.getNumObj()
     num_classes = 2*num_objects-1
@@ -288,21 +287,18 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
             plt.imshow(inhands[i], cmap='gray')
             plt.colorbar()
             plt.suptitle(f"Label: {labels[i]}, State: {states[i]}")
-            plt.savefig(f'check_debug_collect_image/image_{i}.png')
-        exit()
+            plt.savefig(f'check_collect_image/image_{i}.png')
             
     dataset = dataset.to_array_dataset({
         "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
-        "DONES": np.bool,
+        "DONES": bool,
         "ABS_STATE_INDEX": np.int32,
     })
-    dataset.metadata = {
-        "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
-    }
+
     print(dataset.size)
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=1000, debug=True)
+    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=50000, debug=False)

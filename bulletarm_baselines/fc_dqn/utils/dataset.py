@@ -10,7 +10,6 @@ class ArrayDataset:
 
         self.arrays = arrays_dict
         self.size = None
-        self.metadata = None
 
         if self.arrays is not None:
             self.compute_size()
@@ -18,16 +17,7 @@ class ArrayDataset:
             self.size = 0
 
     def save_hdf5(self, save_path):
-
         file = h5py.File(save_path, "w")
-
-        if self.metadata is None:
-            warnings.warn("Saving hdf5 dataset without metadata.")
-        elif not isinstance(self.metadata, dict):
-            warnings.warn("Metadata not dict.")
-        else:
-            for key, value in self.metadata.items():
-                file.attrs[key] = value
 
         for key, value in self.arrays.items():
             self.create_dataset_hdf5(file, key, value)
@@ -38,11 +28,6 @@ class ArrayDataset:
 
         file = h5py.File(load_path, "r")
 
-        self.metadata = {}
-
-        for key, value in file.attrs.items():
-            self.metadata[key] = value
-
         self.arrays = {}
 
         for key, value in file.items():
@@ -51,7 +36,6 @@ class ArrayDataset:
         file.close()
 
         self.compute_size()
-
 
     def compute_size(self):
         self.size = len(list(self.arrays.values())[0])
@@ -66,43 +50,12 @@ class ArrayDataset:
 
             self.arrays[key] = self.arrays[key][x]
 
-    # def normalize_together(self, column_keys, std_threshold=0.001):
-
-    #     columns = [self.arrays[key] for key in column_keys]
-    #     columns = np.concatenate(columns, axis=0)
-
-    #     means = np.mean(columns, axis=0)
-    #     stds = np.std(columns, axis=0)
-    #     stds[stds < std_threshold] = 1
-
-    #     for key in column_keys:
-
-    #         self.arrays[key] = (self.arrays[key] - means) / stds
-
-    #     return means, stds
-
-    # def get_means_and_stds_safe(self, key, std_threshold=0.001):
-
-    #     column = self.arrays[key]
-
-    #     means = np.mean(column, axis=0)
-    #     stds = np.std(column, axis=0)
-    #     stds[stds < std_threshold] = 1
-
-    #     return means, stds
-
-    # def normalize_give(self, key, means, stds):
-
-    #     self.arrays[key] -= means
-    #     self.arrays[key] /= stds
-
     def shuffle(self):
 
         keys = []
         arrays_list = []
 
         for key, array in self.arrays.items():
-
             keys.append(key)
             arrays_list.append(array)
 
@@ -123,30 +76,7 @@ class ArrayDataset:
 
         return ArrayDataset(other_dataset)
 
-    # def concatenate(self, keys, arrays):
-
-    #     assert len(keys) == len(arrays)
-
-    #     for key, array in zip(keys, arrays):
-    #         self.arrays[key] = np.concatenate([self.arrays[key], array], axis=0)
-
-    #     self.compute_size()
-
-    # def concatenate_dset(self, dset):
-
-    #     for key, array in dset.arrays.items():
-    #         self.arrays[key] = np.concatenate([self.arrays[key], array], axis=0)
-
-    #     self.compute_size()
-
-    # def limit(self, limit):
-
-    #     for key, array in self.arrays.items():
-
-    #         self.arrays[key] = array[:limit]
-
-    #     self.compute_size()
-
+ 
     def delete(self, indices):
 
         for key, array in self.arrays.items():
@@ -291,36 +221,3 @@ def count_objects(string):
 
     return count
 
-def decompose_objects(string):
-
-    num_blocks = 0
-    num_bricks = 0
-    num_triangles = 0
-    num_roofs = 0
-
-    ONE_BLOCK = "1b"
-    TWO_BLOCKS = "2b"
-    BRICK = "1l"
-    TRIANGLE = "1r"
-    ROOF = "2r"
-    CHARS = [ONE_BLOCK, TWO_BLOCKS, BRICK, TRIANGLE, ROOF]
-
-    assert len(string) % 2 == 0
-
-    for i in range(len(string) // 2):
-        chars = string[i * 2: (i + 1) * 2]
-
-        assert(chars in CHARS)
-
-        if chars == ONE_BLOCK:
-            num_blocks += 1
-        elif chars == TWO_BLOCKS:
-            num_blocks += 2
-        elif chars == BRICK:
-            num_bricks += 1
-        elif chars == TRIANGLE:
-            num_triangles += 1
-        elif chars == ROOF:
-            num_roofs += 1
-
-    return (num_blocks, num_bricks, num_triangles, num_roofs)
