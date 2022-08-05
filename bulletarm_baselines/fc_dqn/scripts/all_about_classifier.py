@@ -149,6 +149,7 @@ def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lam
     # scheduler = optim.lr_scheduler.StepLR(finetune_optimizer, step_size=5, gamma=0.5)
 
     false_count = 0
+    f = open('mnp.txt', 'x')
    
     count_false_best = 0
     for fi_ep in range(finetune_epoch):
@@ -200,23 +201,24 @@ def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lam
             percent.append(correct/total)
         percent = np.array(percent)
         print(f"Finetune Epoch {fi_ep}: {percent.mean()}")
-        classifier.eval()
-        for i in range(10):
-            o = torch.from_numpy(eval_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
-            ii = torch.from_numpy(eval_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
-            pre = classifier.proser_prediction([o, ii])
-            print(i, pre)
-            print('--------------')
+    classifier.eval()
+    for i in range(eval_dataset.size):
+        o = torch.from_numpy(eval_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
+        ii = torch.from_numpy(eval_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
+        pre = classifier.proser_prediction([o, ii])
+        print(i, pre)
+        f.write(str(pre)+'\n')
+        print('--------------')
         # exit()
+    f.close()
+    #     if finetune_epoch%2 == 0:
+    #         per, valid = validate_finetune_model(classifier=classifier)
+    #         if per > false_count and valid > 0.95:
+    #             false_count = per
+    #             best_finetune_model = cp.deepcopy(classifier.state_dict())
 
-        if finetune_epoch%5 == 0:
-            per, valid = validate_finetune_model(classifier=classifier)
-            if per > false_count and valid > 0.95:
-                false_count = per
-                best_finetune_model = cp.deepcopy(classifier.state_dict())
-
-        # scheduler.step()
-    classifier.load_state_dict(best_finetune_model)
+    #     scheduler.step()
+    # classifier.load_state_dict(best_finetune_model)
     return classifier    
 
 def validate_finetune_model(classifier):
@@ -229,7 +231,7 @@ def validate_finetune_model(classifier):
         pred = classifier.proser_prediction([obs, hand_obs])
         correct += pred.eq(abs_task_indices).sum().item()
         percent.append(correct/batch_size)
-    
+    classifier.train()
     return np.array(percent).mean(), validate(classifier, valid_dataset)[1]
 
     # classifier.train()
@@ -262,10 +264,9 @@ def validate_finetune_model(classifier):
 
 def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
-    classifier.eval()
+    classifier.train()
     if use_proser:
         classifier.create_dummy(dummy_number=dummy_number)
-        classifier.to(device)
         if use_equivariant:
             classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt"))
         else:
@@ -275,7 +276,8 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
             classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
         else:
             classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
-
+    classifier.to(device)
+    classifier.eval()
     print('------\t Successfully load classifier \t-----------')
     return classifier
 
@@ -284,14 +286,14 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument('-gs', '--goal_str', default='house_building_3', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
-    ap.add_argument('-nts', '--num_training_steps', default=2000, help='Number of training step')
+    ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
     ap.add_argument('-lr', '--learning_rate', default=1e-3, help='Learning rate')
     ap.add_argument('-wd', '--weight_decay', default=1e-5, help='Weight decay')
-    ap.add_argument('-ufm', '--use_equivariant', default=False, help='Using equivariant or not')
+    ap.add_argument('-ufm', '--use_equivariant', default=True, help='Using equivariant or not')
     ap.add_argument('-up', '--use_proser', default=True, help='Using Proser (open-set recognition) or not')
-    ap.add_argument('-dn', '--dummy_number', default=5, help='Number of dummy classifiers')
-    ap.add_argument('-fep', '--finetune_epoch', default=30, help='Number of finetune epoch')
+    ap.add_argument('-dn', '--dummy_number', default=10, help='Number of dummy classifiers')
+    ap.add_argument('-fep', '--finetune_epoch', default=2, help='Number of finetune epoch')
     ap.add_argument('-ld0', '--lamda0', default=0.01, help='Weight for data placeholder loss')
     ap.add_argument('-ld1', '--lamda1', default=1, help='Weight for classifier placeholder loss (mapping the nearest to ground truth label)')
     ap.add_argument('-ld2', '--lamda2', default=1, help='Weight for classifier placeholder loss (mapping the second nearest to the dummpy classifier )')
@@ -326,6 +328,7 @@ if __name__ == "__main__":
     
     # Build model
     classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'])
+    classifier.train()
     if proser:
         eval_dataset = load_dataset(goal_str=goal_string, eval=True)
         if args['use_equivariant']:
@@ -335,13 +338,11 @@ if __name__ == "__main__":
         classifier.create_dummy(dummy_number=args['dummy_number'])
     classifier.to(device)
 
-    # Init optimizer
-    params = classifier.parameters()
-    print("num parameter tensors: {:d}".format(len(list(classifier.parameters()))))
-    opt = optim.Adam(params, lr=args['learning_rate'], weight_decay=args['weight_decay'], )
-
     if not proser:
-        classifier.train()
+          # Init optimizer
+        params = classifier.parameters()
+        print("num parameter tensors: {:d}".format(len(list(classifier.parameters()))))
+        opt = optim.Adam(params, lr=args['learning_rate'], weight_decay=args['weight_decay'])
         best_val_loss, best_classifier = None, None
 
         result = Result()

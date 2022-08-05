@@ -994,8 +994,8 @@ class BaseEnv:
       - p: [x, y, z] point
     Returns: True in point is within workspace, False otherwise
     '''
-    return p[0] > self.workspace[0][0] - 0.1 and p[0] < self.workspace[0][1] + 0.1 and \
-           p[1] > self.workspace[1][0] - 0.1 and p[1] < self.workspace[1][1] + 0.1 and \
+    return p[0] > self.workspace[0][0] - 0.01 and p[0] < self.workspace[0][1] + 0.01 and \
+           p[1] > self.workspace[1][0] - 0.01 and p[1] < self.workspace[1][1] + 0.01 and \
            p[2] > self.workspace[2][0] and p[2] < self.workspace[2][1]
 
   def getInHandImage(self, heightmap, x, y, z, rot, next_heightmap):

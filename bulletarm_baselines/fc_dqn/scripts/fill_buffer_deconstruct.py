@@ -242,16 +242,15 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
-        num_episodes = 10
+        dones = []
+        num_episodes = 20
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
     decon_envs.close()
     transitions.reverse()
-    print(len(transitions))
+
     true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
-    perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[0] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
-    print(len(true_index))
-    print(len(perfect_index))
-    # exit()
+    perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
+
     for i in perfect_index:
         for j in range(num_classes-1, 0, -1):
         
@@ -260,6 +259,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
                 obss.append(transitions[i-j+1][0][2])
                 inhands.append(transitions[i-j+1][0][1])
                 labels.append(j)
+                # dones.append()
             dataset.add("HAND_BITS", transitions[i-j+1][0][0])
             dataset.add("OBS", transitions[i-j+1][0][2])
             dataset.add("HAND_OBS", transitions[i-j+1][0][1])
@@ -295,10 +295,10 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         "ABS_STATE_INDEX": np.int32,
     })
 
-    print(dataset.size)
+    print(f"Number dataset collected / Number samples: {dataset.size}/{len(transitions)}")
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=50000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=50000, debug=True)
