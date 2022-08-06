@@ -11,6 +11,7 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       config['num_objects'] = 4
     if 'max_steps' not in config:
       config['max_steps'] = 10
+    self.num_class = config['num_objects'] * 2 - 1
     super(HouseBuilding1DeconstructEnv, self).__init__(config)
 
   def checkStructure(self):
@@ -33,6 +34,37 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
   def isSimValid(self):
     triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
     return self._checkObjUpright(triangles[0]) and DeconstructEnv.isSimValid(self)
+
+  def get_other(self,i,j):
+    if (i+j == 3):
+      return 0
+    if (i+j == 2):
+      return 1
+    if (i+j == 1):
+      return 2
+
+  def get_true_abs_state(self):
+    if (not self.isSimValid()):
+      return self.num_class
+    blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
+    triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    if (self._checkStack(blocks+triangles) and self._checkObjUpright(triangles[0])):
+      return 0
+    if (self._checkStack(blocks) and (self._isObjectHeld(triangles[0]))):
+      return 1
+    if (self._checkStack(blocks) and (not self._isObjectHeld(triangles[0]))):
+      return 2
+    for i in range(3):
+      for j in range(i+1,3):
+        other = self.get_other(i,j)
+        if (self._checkStack([blocks[i],blocks[j]]) and (self._isObjectHeld(blocks[other]))):
+          return 3
+        if (self._checkStack([blocks[i],blocks[j]]) and (not self._isObjectHeld(blocks[other]))):
+          return 4
+    for i in range(3):
+      if (self._isObjectHeld(blocks[i])):
+        return 5
+    return 6
 
 
 def createHouseBuilding1DeconstructEnv(config):

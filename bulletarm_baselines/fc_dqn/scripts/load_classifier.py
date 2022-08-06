@@ -4,11 +4,11 @@ from bulletarm_baselines.fc_dqn.utils.ConvEncoder import ConvEncoder
 from bulletarm_baselines.fc_dqn.utils.SplitConcat import SplitConcat
 from bulletarm_baselines.fc_dqn.utils.FCEncoder import FCEncoder
 from bulletarm_baselines.fc_dqn.utils.EquiConv import EquiConv
-from bulletarm_baselines.fc_dqn.utils.dataset import ArrayDataset, count_objects, decompose_objects
+from bulletarm_baselines.fc_dqn.utils.dataset import ArrayDataset, count_objects
 from bulletarm_baselines.fc_dqn.utils.result import Result
 import torch
 import torch.nn as nn
-
+from bulletarm_baselines.fc_dqn.utils.parameters import *
 
 class block_stacking_perfect_classifier(nn.Module):
   def __init__(self):
@@ -117,12 +117,22 @@ def build_classifier(num_classes, use_equivariant=False):
     classifier.to("cuda")
     return classifier
 
-def load_classifier(goal_str, use_equivariant):
-    num_objects = count_objects(goal_str)
-    num_classes = 2 * num_objects - 1
+def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
+    classifier.train()
+    # if use_proser:
+    #     classifier.create_dummy(dummy_number=dummy_number)
+    #     if use_equivariant:
+    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt"))
+    #     else:
+    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt"))
+    # else:
+    #     if use_equivariant:
+    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
+    #     else:
+    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
+    classifier.to(device)
     classifier.eval()
-    classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
     print('------\t Successfully load classifier \t-----------')
     return classifier
 

@@ -10,6 +10,7 @@ import bulletarm
 from tqdm import tqdm
 import copy
 import time
+import matplotlib.pyplot as plt
 
 def worker(remote, parent_remote, env_fn, planner_fn=None):
   '''
@@ -28,11 +29,12 @@ def worker(remote, parent_remote, env_fn, planner_fn=None):
     planner = planner_fn(env)
   else:
     planner = None
-
   try:
     while True:
       cmd, data = remote.recv()
-      if cmd == 'step':
+      if (cmd == 'get_true_abs_state'):
+        remote.send(env.get_true_abs_state())
+      elif cmd == 'step':
         res = env.step(data)
         remote.send(res)
       elif cmd == 'simulate':
@@ -85,7 +87,7 @@ def worker(remote, parent_remote, env_fn, planner_fn=None):
         remote.close()
         break
       else:
-        raise NotImplementerError
+        raise NotImplementedError
   except KeyboardInterrupt:
     print('MultiRunner worker: caught keyboard interrupt')
 
@@ -217,6 +219,14 @@ class MultiRunner(object):
     obs = np.stack(obs)
 
     return (states, hand_obs, obs)
+  
+  def get_true_abs(self):
+    for remote in self.remotes:
+      remote.send(('get_true_abs_state', None))
+    
+    true_abs_states = [remote.recv() for remote in self.remotes]
+    true_abs_states = np.stack(true_abs_states)
+    return true_abs_states
 
   def reset_envs(self, env_nums):
     '''
@@ -379,11 +389,23 @@ class MultiRunner(object):
     pbar = tqdm(total=planner_episode)
 
     transitions = []
+    cnt = 0
     while total < planner_episode:
+      cnt += 1
       plan_actions = self.getNextAction()
       actions_star = np.concatenate((plan_actions, np.expand_dims(states, 1)), axis=1)
       t0 = time.time()
+      prev = self.get_true_abs()
       (states_, in_hands_, obs_), rewards, dones = self.step(actions_star, auto_reset=False)
+      # TODO: debug in here
+      # print('------')
+      # print(np.max(obs[0].reshape(128,128)),np.min(obs[0].reshape(128,128)))
+      # print(prev)
+      # print(self.get_true_abs())
+      # plt.title(f'{prev} {self.get_true_abs()}')
+      # plt.imshow(obs[0].reshape(128,128))
+      # plt.savefig(f'{cnt}_.png')
+
       dones[states + states_ != 1] = 1
       t = time.time()-t0
       step_times.append(t)

@@ -29,10 +29,10 @@ from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
 
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
-from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner
+from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner,train_fillDeconstructUsingRunner
 
 from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier,block_stacking_perfect_classifier
-from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects, decompose_objects
+from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
@@ -161,7 +161,7 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
         except:
             pass
 
-def train(wandb_logs = True):
+def train(wandb_logs = False):
     print(f'trainning for {max_train_step} step')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
@@ -179,12 +179,13 @@ def train(wandb_logs = True):
     eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
+
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
     # load classifier
     # classifier = block_stacking_perfect_classifier()
-    classifier = load_classifier(goal_str = '2b1l2r',use_equivariant = False)
+    classifier = load_classifier(goal_str = env,num_classes=7)
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
@@ -222,9 +223,9 @@ def train(wandb_logs = True):
     #------------------------------------- expert transition ----------------------------------------#    
     if planner_episode > 0 and not load_sub:
         if fill_buffer_deconstruct:
-            fillDeconstructUsingRunner(agent, replay_buffer,classifier)
+            train_fillDeconstructUsingRunner(agent, replay_buffer,classifier)
     #------------------------------------- pretrainning with expert ----------------------------------------#    
-
+    return
     #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:
         pbar = tqdm(total=max_train_step)

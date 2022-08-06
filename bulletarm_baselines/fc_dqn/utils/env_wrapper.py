@@ -29,6 +29,9 @@ class EnvWrapper:
         actions = actions.cpu().numpy()
         self.envs.stepAsync(actions, auto_reset)
 
+    def get_true_abs_states(self):
+        return self.envs.get_true_abs()
+
     def stepWait(self):
         (states_, in_hands_, obs_), rewards, dones = self.envs.stepWait()
         states_ = torch.tensor(states_).float()

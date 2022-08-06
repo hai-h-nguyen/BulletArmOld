@@ -204,6 +204,74 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
     )
   decon_envs.close()
 
+def get_cls(classifier, obs, inhand):
+    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
+    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    res = classifier([obs,inhand])
+    return torch.argmax(res,dim=1)
+
+def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
+  if env in ['block_stacking',
+             'house_building_1',
+             'house_building_2',
+             'house_building_3',
+             'house_building_4',
+             'improvise_house_building_2',
+             'improvise_house_building_3',
+             'improvise_house_building_discrete',
+             'improvise_house_building_random',
+             'ramp_block_stacking',
+             'ramp_house_building_1',
+             'ramp_house_building_2',
+             'ramp_house_building_3',
+             'ramp_house_building_4',
+             'ramp_improvise_house_building_2',
+             'ramp_improvise_house_building_3']:
+    deconstruct_env = env + '_deconstruct'
+  else:
+    raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
+  env_config['render'] = True
+  decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+
+  transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
+  for i, transition in enumerate(transitions):
+    (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs) = transition
+    # print(state,next_state, reward, done)
+    # fig, axs = plt.subplots(2,2)
+    # axs[0][0].set_title('in_hand')
+    # axs[0][0].imshow(in_hand)
+    # axs[0][1].set_title('obs')
+    # axs[0][1].imshow(obs)
+    # axs[1][0].set_title('next_in_hand')
+    # axs[1][0].imshow(next_in_hand)
+    # axs[1][1].set_title('next_obs')
+    # axs[1][1].imshow(next_obs)
+    # plt.show()
+    # TODO: classifier
+    abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
+    abs_goal = update_abs_goals(abs_state)
+    abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128), next_in_hand.reshape(1,1,24,24))
+    abs_goal_next =  update_abs_goals(abs_state_next)
+    actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
+    replay_buffer.add(ExpertTransition(
+      torch.tensor(state).float(),
+      (torch.tensor(obs).float(), torch.tensor(in_hand).float()),
+      actions_star_idx[0],
+      torch.tensor(reward).float(),
+      torch.tensor(next_state).float(),
+      (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
+      #------------------#
+    #   torch.tensor(float(done)),
+      torch.tensor(float(1)),
+      #------------------#
+      torch.tensor(float(0)),
+      torch.tensor(1),
+      abs_state[0], abs_goal[0],
+      abs_state_next[0],abs_goal_next[0]
+      )
+    )
+  decon_envs.close()
+
 def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debug=False):
     if env in ['block_stacking',
              'house_building_1',
