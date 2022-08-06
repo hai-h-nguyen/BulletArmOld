@@ -4,7 +4,7 @@ DEFAULT_CONFIG = {
   # The type of robot to use in the simulator. Currently supports: kuka, panda, ur5, ur5_robotiq
   'robot' : 'kuka',
   # Check object out of bound using the COM or the bounding box. Choices: 'point', 'box'
-  'workspace_check' : 'point',
+  'workspace_check' : 'box',
   # The pixel size of the in-hand image
   'in_hand_size' : 24,
   # The type of the in-hand image:
