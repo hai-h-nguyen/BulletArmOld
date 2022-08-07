@@ -1,5 +1,6 @@
 from bulletarm.envs.deconstruct_envs.deconstruct_env import DeconstructEnv
 from bulletarm.pybullet.utils import constants
+from bulletarm.envs.base_env import BaseEnv
 
 class HouseBuilding1DeconstructEnv(DeconstructEnv):
   ''''''
@@ -44,10 +45,15 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       return 2
 
   def get_true_abs_state(self):
-    if (not self.isSimValid()):
-      return self.num_class
+    # if (not self.isSimValid()):
+    # #   triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    # #   print('is up:', self._checkObjUpright(triangles[0]))
+    # #   print('is val:', DeconstructEnv.isSimValid(self))
+    #   return self.num_class
     blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
     triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    if not self._checkObjUpright(triangles[0]) or not BaseEnv.isSimValid(self):
+      return self.num_class
     if (self._checkStack(blocks+triangles) and self._checkObjUpright(triangles[0])):
       return 0
     if (self._checkStack(blocks) and (self._isObjectHeld(triangles[0]))):
@@ -64,7 +70,9 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
     for i in range(3):
       if (self._isObjectHeld(blocks[i])):
         return 5
-    return 6
+    if self._isObjOnGround(triangles[0]) and self._isObjOnGround(blocks[0]) and self._isObjOnGround(blocks[1]) and self._isObjOnGround(blocks[2]):
+      return 6
+    return self.num_class
 
 
 def createHouseBuilding1DeconstructEnv(config):
