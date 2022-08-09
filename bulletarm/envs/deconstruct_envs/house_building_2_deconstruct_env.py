@@ -1,3 +1,5 @@
+from ast import Constant
+import dis
 import time
 from copy import deepcopy
 import numpy.random as npr
@@ -5,6 +7,7 @@ import numpy as np
 import pybullet as pb
 from itertools import combinations
 from bulletarm.envs.deconstruct_envs.deconstruct_env import DeconstructEnv
+from bulletarm.envs.base_env import BaseEnv
 from bulletarm.pybullet.utils import constants
 
 class HouseBuilding2DeconstructEnv(DeconstructEnv):
@@ -17,6 +20,7 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
       config['num_objects'] = 3
     if 'max_steps' not in config:
       config['max_steps'] = 10
+    self.num_class = config['num_objects']*2-1
     super(HouseBuilding2DeconstructEnv, self).__init__(config)
 
   def checkStructure(self):
@@ -45,6 +49,30 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
   def isSimValid(self):
     roofs = list(filter(lambda x: self.object_types[x] == constants.ROOF, self.objects))
     return self._checkObjUpright(roofs[0]) and super(HouseBuilding2DeconstructEnv, self).isSimValid()
+
+  def get_true_abs_state(self):
+    blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
+    roofs = list(filter(lambda x: self.object_types[x] == constants.ROOF, self.objects))
+    
+    if not self._checkObjUpright(roofs[0]) or not BaseEnv.isSimValid(self):
+      return self.num_class
+    dist_blocks = self._getDistance(blocks[0], blocks[1]) 
+    if self._checkOnTop(blocks[0], roofs[0]) and self._checkOnTop(blocks[1], roofs[0]) and self._checkInBetween(roofs[0], blocks[0], blocks[1]):
+      return 0
+    if self._isObjectHeld(roofs[0]) and dist_blocks < 2.2 * self.max_block_size:
+      if not self._checkOnTop(blocks[1], blocks[0]) and not self._checkOnTop(blocks[0], blocks[1]):
+        return 1
+    if self._isObjOnGround(blocks[0]) and self._isObjOnGround(blocks[1]) and self._isObjOnGround(roofs[0]):
+      if not roofs[0].isTouching(blocks[0]) and not roofs[0].isTouching(blocks[1]): 
+        if dist_blocks < 2.2 * self.max_block_size and not self._checkInBetween(roofs[0], blocks[0], blocks[1]):
+          return 2
+        if dist_blocks >= 2.2 * self.max_block_size:
+          return 4
+    if self._isObjectHeld(blocks[0]) and self._isObjOnGround(roofs[0]) and not roofs[0].isTouching(blocks[1]):
+        return 3
+    if self._isObjectHeld(blocks[1]) and self._isObjOnGround(roofs[0]) and not roofs[0].isTouching(blocks[0]):
+        return 3      
+    return self.num_class
 
 def createHouseBuilding2DeconstructEnv(config):
   return HouseBuilding2DeconstructEnv(config)

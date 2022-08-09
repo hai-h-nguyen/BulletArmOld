@@ -8,6 +8,7 @@ Loss_and_Acc/
 bulletarm_baselines/fc_dqn/classifiers/
 abc.txt
 mnp.txt
+abc/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
