@@ -20,6 +20,7 @@ class HouseBuilding1Env(BaseEnv):
       config['num_objects'] = 4
     if 'max_steps' not in config:
       config['max_steps'] = 10
+    self.num_class = config['num_objects'] * 2 - 1
     super(HouseBuilding1Env, self).__init__(config)
 
   def reset(self):
@@ -54,10 +55,15 @@ class HouseBuilding1Env(BaseEnv):
       return 2
 
   def get_true_abs_state(self):
-    if (not self.isSimValid()):
-      return self.num_class
+    # if (not self.isSimValid()):
+    # #   triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    # #   print('is up:', self._checkObjUpright(triangles[0]))
+    # #   print('is val:', DeconstructEnv.isSimValid(self))
+    #   return self.num_class
     blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
     triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    if not self._checkObjUpright(triangles[0]) or not BaseEnv.isSimValid(self):
+      return self.num_class
     if (self._checkStack(blocks+triangles) and self._checkObjUpright(triangles[0])):
       return 0
     if (self._checkStack(blocks) and (self._isObjectHeld(triangles[0]))):
@@ -74,7 +80,9 @@ class HouseBuilding1Env(BaseEnv):
     for i in range(3):
       if (self._isObjectHeld(blocks[i])):
         return 5
-    return 6
+    if self._isObjOnGround(triangles[0]) and self._isObjOnGround(blocks[0]) and self._isObjOnGround(blocks[1]) and self._isObjOnGround(blocks[2]):
+      return 6
+    return self.num_class
 
 def createHouseBuilding1Env(config):
   return HouseBuilding1Env(config)

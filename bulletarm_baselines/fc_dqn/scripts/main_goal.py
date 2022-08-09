@@ -61,6 +61,11 @@ def update_abs_goals(abs_states):
         zeros_goals = torch.zeros_like(abs_states)
         return torch.max(abs_states - 1, zeros_goals)
 
+def remove_outlier(abs_states,num_classes):
+    with torch.no_grad():
+        max_abs = torch.full(abs_states.shape,num_classes - 1,dtype=abs_states.dtype).to(device)
+        return torch.min(abs_states, max_abs)
+
 def train_step(agent, replay_buffer, logger):
     batch = replay_buffer.sample(batch_size)
     loss, td_error = agent.update(batch)
@@ -79,8 +84,9 @@ def get_cls(classifier, obs, inhand):
     res = classifier([obs,inhand])
     return torch.argmax(res,dim=1)
 
-def evaluate(envs, agent, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
-    goal_str = '2b1l2r'
+def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
+    num_objects = envs.getNumObj()
+    num_classes = 2 * num_objects - 1 
     states, in_hands, obs = envs.reset()
     evaled = 0
     total_return = 0
@@ -94,7 +100,8 @@ def evaluate(envs, agent, wandb_logs=False,classifier=None,num_steps=0,debug = F
 
     cnt = 0
     while evaled < num_eval_episodes:
-        abs_states = get_cls(classifier, obs, in_hands)
+        abs_states = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier, obs, in_hands)
+        abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         if (render):
             print(abs_states,abs_goals)
@@ -131,10 +138,16 @@ def evaluate(envs, agent, wandb_logs=False,classifier=None,num_steps=0,debug = F
         evaled += int(np.sum(dones))
         for i, d in enumerate(dones.astype(bool)):
             if d:
+                R = 0
+                for r in reversed(temp_reward[i]):
+                    R = r + gamma * R
+                logger.logEvalEpisode(temp_reward[i], discounted_return=R)
                 total_return += temp_reward[i][-1]
                 if(render):
                     print('return is',temp_reward[i][-1])
                 temp_reward[i] = []
+        logger.logEvalInterval()
+        logger.writeLog()
         if not no_bar:
             eval_bar.update(evaled - eval_bar.n)
 
@@ -161,12 +174,12 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
         except:
             pass
 
-def train(wandb_logs = False):
+def train(wandb_logs = True):
     print(f'trainning for {max_train_step} step')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group='DQN_ASR_goal_200', name='s0', entity='hmhuy')
+        group='DQN_ASR_goal_10', name='s0', entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -225,7 +238,6 @@ def train(wandb_logs = False):
         if fill_buffer_deconstruct:
             train_fillDeconstructUsingRunner(agent, replay_buffer,classifier)
     #------------------------------------- pretrainning with expert ----------------------------------------#    
-    return
     #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:
         pbar = tqdm(total=max_train_step)
@@ -236,13 +248,13 @@ def train(wandb_logs = False):
     old_total_goal = np.zeros((num_classes))
     old_success_goal = np.zeros((num_classes))
     train_return = []
-    while logger.num_steps < max_train_step + 1:
-        if (logger.num_steps%eval_freq == 0 and logger.num_steps > 0):
+    while logger.num_training_steps < max_train_step + 1:
+        if (logger.num_training_steps%eval_freq == 0 and logger.num_training_steps > 0):
             for idx in range(num_classes-1):
-                Wandb_logging(f'number of goal {idx}',total_goal[idx] - old_total_goal[idx],logger.num_steps,wandb_logs)
-                Wandb_logging(f'number of achieved goal {idx}',success_goal[idx] - old_success_goal[idx],logger.num_steps,wandb_logs)
-                Wandb_logging(f'success rate of goal {idx}',(success_goal[idx]-old_success_goal[idx])/(total_goal[idx]-old_total_goal[idx]),logger.num_steps,wandb_logs)
-            Wandb_logging(f'mean training return',np.mean(train_return),logger.num_steps,wandb_logs)
+                Wandb_logging(f'number of goal {idx}',total_goal[idx] - old_total_goal[idx],logger.num_training_steps,wandb_logs)
+                Wandb_logging(f'number of achieved goal {idx}',success_goal[idx] - old_success_goal[idx],logger.num_training_steps,wandb_logs)
+                Wandb_logging(f'success rate of goal {idx}',(success_goal[idx]-old_success_goal[idx])/(total_goal[idx]-old_total_goal[idx]),logger.num_training_steps,wandb_logs)
+            Wandb_logging(f'mean training return',np.mean(train_return),logger.num_training_steps,wandb_logs)
             old_total_goal = copy.deepcopy(total_goal)
             old_success_goal = copy.deepcopy(success_goal)
             train_return = []
@@ -251,7 +263,8 @@ def train(wandb_logs = False):
         else:
             eps = exploration.value(logger.num_eps)
         is_expert = 0
-        abs_states = get_cls(classifier,obs,in_hands)
+        abs_states = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier,obs,in_hands)
+        abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         for i in range(num_processes):
             total_goal[abs_goals[i]] += 1
@@ -272,7 +285,8 @@ def train(wandb_logs = False):
         clone_rewards = copy.deepcopy(rewards)
 
         # abs_states_next = classifier([torch.tensor(obs_).type(torch.cuda.FloatTensor).to('cuda'), torch.tensor(in_hands_).type(torch.cuda.FloatTensor).to('cuda')])
-        abs_states_next = get_cls(classifier, obs_, in_hands_)
+        abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier, obs_, in_hands_)
+        abs_states_next = remove_outlier(abs_states_next,num_classes)
         abs_goals_next =  update_abs_goals(abs_states_next)
         goals_achieved = (abs_states_next == abs_goals)
         rewards = goals_achieved.unsqueeze(1).float() - 1.0
@@ -318,19 +332,19 @@ def train(wandb_logs = False):
 
         if not no_bar:
             timer_final = time.time()
-            description = 'Action Step:{}; Episode: {}; Reward:{:.03f}; Eval Reward:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; Time:{:.03f}'.format(
+            description = 'Action Step:{}; Episode: {}; Reward:{:.03f}; Eval Reward:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; num_training_steps:{}'.format(
               logger.num_steps, logger.num_eps, logger.getAvg(logger.training_eps_rewards, 100),
               np.mean(logger.eval_eps_rewards[-2]) if len(logger.eval_eps_rewards) > 1 and len(logger.eval_eps_rewards[-2]) > 0 else 0, eps, float(logger.getCurrentLoss()),
-              timer_final - timer_start)
+              logger.num_training_steps)
             pbar.set_description(description)
             timer_start = timer_final
             pbar.update(logger.num_training_steps - pbar.n)
 
-        if logger.num_steps > 0 and eval_freq > 0 and logger.num_steps % eval_freq == 0:
+        if logger.num_training_steps > 0 and eval_freq > 0 and logger.num_training_steps % eval_freq == 0:
             if eval_thread is not None:
                 eval_thread.join()
             eval_agent.copyNetworksFrom(agent)
-            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent, wandb_logs,classifier,logger.num_steps,False))
+            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,logger, wandb_logs,classifier,logger.num_training_steps,False))
             eval_thread.start()
 
         if logger.num_steps % (num_processes * save_freq) == 0:

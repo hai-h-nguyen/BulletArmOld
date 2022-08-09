@@ -230,28 +230,31 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
     deconstruct_env = env + '_deconstruct'
   else:
     raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
-  env_config['render'] = True
+#   env_config['render'] = True
   decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
-
+  cnt = 0
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
   for i, transition in enumerate(transitions):
-    (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs) = transition
-    # print(state,next_state, reward, done)
-    # fig, axs = plt.subplots(2,2)
-    # axs[0][0].set_title('in_hand')
-    # axs[0][0].imshow(in_hand)
-    # axs[0][1].set_title('obs')
-    # axs[0][1].imshow(obs)
-    # axs[1][0].set_title('next_in_hand')
-    # axs[1][0].imshow(next_in_hand)
-    # axs[1][1].set_title('next_obs')
-    # axs[1][1].imshow(next_obs)
-    # plt.show()
-    # TODO: classifier
-    abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
+    (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
+    abs_state = torch.tensor(abs_state).to(device)
+    abs_state_next = torch.tensor(abs_state_next).to(device)
+    # abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
     abs_goal = update_abs_goals(abs_state)
-    abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128), next_in_hand.reshape(1,1,24,24))
     abs_goal_next =  update_abs_goals(abs_state_next)
+
+    # TODO: classifier
+    # fig, axs = plt.subplots(2,2)
+    # cnt += 1
+    # axs[0][0].axis('off')
+    # axs[0][0].set_title(f'current abs {abs_state}')
+    # axs[0][0].imshow(in_hand)
+    # axs[0][1].imshow(obs)
+    # axs[1][0].axis('off')
+    # axs[1][0].set_title(f'next abs {abs_state_next}')
+    # axs[1][0].imshow(next_in_hand)
+    # axs[1][1].imshow(next_obs)
+    # plt.savefig(f'abc/{cnt}_.png')
+
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
       torch.tensor(state).float(),
@@ -266,8 +269,8 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
       #------------------#
       torch.tensor(float(0)),
       torch.tensor(1),
-      abs_state[0], abs_goal[0],
-      abs_state_next[0],abs_goal_next[0]
+      abs_state, abs_goal,
+      abs_state_next,abs_goal_next
       )
     )
   decon_envs.close()

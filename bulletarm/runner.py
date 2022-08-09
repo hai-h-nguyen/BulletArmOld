@@ -385,6 +385,7 @@ class MultiRunner(object):
     local_obs = [[] for i in range(num_processes)]
     local_action = [[] for i in range(num_processes)]
     local_reward = [[] for i in range(num_processes)]
+    local_abs_state = [[] for i in range(num_processes)]
 
     pbar = tqdm(total=planner_episode)
 
@@ -396,33 +397,32 @@ class MultiRunner(object):
       actions_star = np.concatenate((plan_actions, np.expand_dims(states, 1)), axis=1)
       t0 = time.time()
       prev = self.get_true_abs()
+      abs_states = self.get_true_abs()
       (states_, in_hands_, obs_), rewards, dones = self.step(actions_star, auto_reset=False)
-      # TODO: debug in here
-      print('------')
-     
-      print(np.max(obs[0].reshape(128,128)),np.min(obs[0].reshape(128,128)))
-      print(prev)
-      print(self.get_true_abs())
-      plt.subplot(1, 2, 1)
-      plt.title(f'{prev} {self.get_true_abs()}')
-      plt.imshow(obs[0].reshape(128,128))
-      plt.subplot(1, 2, 2)
-      plt.imshow(in_hands_[0].reshape(24, 24))
-      plt.savefig(f'abc/{cnt}_.png')
+      abs_states_next = self.get_true_abs()
 
+      # TODO: debug in here
+      # print(np.max(obs[0].reshape(128,128)),np.min(obs[0].reshape(128,128)))
+      # print(prev)
+      # print()
+      # plt.subplot(1, 2, 1)
+      # plt.title(f'{prev} {self.get_true_abs()}')
+      # plt.imshow(obs[0].reshape(128,128))
+      # plt.subplot(1, 2, 2)
+      # plt.imshow(in_hands_[0].reshape(24, 24))
+      # plt.savefig(f'abc/{cnt}_.png')
       # exit()
 
       dones[states + states_ != 1] = 1
-      print(dones)
       t = time.time()-t0
       step_times.append(t)
-
       buffer_obs = getCurrentObs(in_hands_, obs)
       for i in range(num_processes):
         local_state[i].append(states[i])
         local_obs[i].append(buffer_obs[i])
         local_action[i].append(plan_actions[i])
         local_reward[i].append(rewards[i])
+        local_abs_state[i].append(abs_states[i])
 
       steps = list(map(lambda x: x + 1, steps))
 
@@ -435,6 +435,7 @@ class MultiRunner(object):
         for i, idx in enumerate(done_idxes):
           local_obs[idx].append(buffer_obs_[idx])
           local_state[idx].append(copy.deepcopy(states_[idx]))
+          local_abs_state[idx].append(copy.deepcopy(abs_states_next[idx]))
           if (num_objects-2)*2 <= steps[idx] <= num_objects*2 and states_valid(local_state[idx]) and rewards_valid(local_reward[idx]):
             s += 1
             for j in range(len(local_reward[idx])):
@@ -444,7 +445,8 @@ class MultiRunner(object):
                                   local_action[idx][j], # action
                                   local_reward[idx][j], # reward
                                   j == 0, # done
-                                  (local_state[idx][j], next_obs[1], next_obs[0]))) # (next_state, next_in_hand, next_obs)
+                                  (local_state[idx][j], next_obs[1], next_obs[0]),# (next_state, next_in_hand, next_obs)
+                                  (local_abs_state[idx][j+1],local_abs_state[idx][j])))  #(abs_state,abs_state_next)
 
           states_[idx] = reset_states_[i]
           obs_[idx] = reset_obs_[i]
@@ -455,6 +457,7 @@ class MultiRunner(object):
           local_obs[idx] = []
           local_action[idx] = []
           local_reward[idx] = []
+          local_abs_state[idx] = []
 
       pbar.set_description(
         '{}/{}, SR: {:.3f}, step time: {:.2f}; avg step time: {:.2f}'

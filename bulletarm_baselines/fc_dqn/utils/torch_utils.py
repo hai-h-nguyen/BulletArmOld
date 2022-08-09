@@ -114,7 +114,7 @@ def argmax2d(tensor):
   n = tensor.size(0)
   d = tensor.size(2)
   m = tensor.view(n, -1).argmax(1)
-  return torch.cat(((m / d).view(-1, 1), (m % d).view(-1, 1)), dim=1)
+  return torch.cat(((m // d).view(-1, 1), (m % d).view(-1, 1)), dim=1)
 
 def argmax3d(tensor):
   n = tensor.size(0)
