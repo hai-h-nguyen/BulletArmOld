@@ -410,10 +410,7 @@ class MultiRunner(object):
       plt.imshow(in_hands_[0].reshape(24, 24))
       plt.savefig(f'abc/{cnt}_.png')
 
-      # exit()
-
       dones[states + states_ != 1] = 1
-      print(dones)
       t = time.time()-t0
       step_times.append(t)
 

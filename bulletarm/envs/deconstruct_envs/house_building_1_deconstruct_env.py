@@ -74,6 +74,7 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       return 6
     return self.num_class
 
+  
 
 def createHouseBuilding1DeconstructEnv(config):
   return HouseBuilding1DeconstructEnv(config)
