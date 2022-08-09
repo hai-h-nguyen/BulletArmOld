@@ -146,8 +146,6 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
                 if(render):
                     print('return is',temp_reward[i][-1])
                 temp_reward[i] = []
-        logger.logEvalInterval()
-        logger.writeLog()
         if not no_bar:
             eval_bar.update(evaled - eval_bar.n)
 
@@ -160,10 +158,12 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
             "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
         }
         print('get',dataset.size,'data samples')
-        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{goal_str}.h5")
+        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_.h5")
 
     print(f'evaluate results: {total_return/num_eval_episodes}')
     Wandb_logging(f'mean evaluate return',total_return/num_eval_episodes,num_steps,wandb_logs)
+    logger.logEvalInterval()
+    logger.writeLog()
     if not no_bar:
         eval_bar.close()
     
@@ -179,7 +179,7 @@ def train(wandb_logs = True):
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group='DQN_ASR_goal_10', name='s0', entity='hmhuy')
+        group=wandb_group, name=wandb_seed, entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -332,7 +332,7 @@ def train(wandb_logs = True):
 
         if not no_bar:
             timer_final = time.time()
-            description = 'Action Step:{}; Episode: {}; Reward:{:.03f}; Eval Reward:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; num_training_steps:{}'.format(
+            description = 'Env Step:{}; Episode: {}; Return:{:.03f}; Eval Return:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; train_steps:{}'.format(
               logger.num_steps, logger.num_eps, logger.getAvg(logger.training_eps_rewards, 100),
               np.mean(logger.eval_eps_rewards[-2]) if len(logger.eval_eps_rewards) > 1 and len(logger.eval_eps_rewards[-2]) > 0 else 0, eps, float(logger.getCurrentLoss()),
               logger.num_training_steps)

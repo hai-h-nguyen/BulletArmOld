@@ -82,6 +82,8 @@ logging_group.add_argument('--log_sub', type=str, default=None)
 logging_group.add_argument('--no_bar', action='store_true')
 logging_group.add_argument('--time_limit', type=float, default=10000)
 logging_group.add_argument('--load_sub', type=str, default=None)
+logging_group.add_argument('--wandb_group', type=str, default=None)
+logging_group.add_argument('--wandb_seed', type=str, default=None)
 
 args = parser.parse_args()
 # env
@@ -186,6 +188,8 @@ log_sub = args.log_sub
 no_bar = args.no_bar
 time_limit = args.time_limit
 load_sub = args.load_sub
+wandb_group = args.wandb_group
+wandb_seed = args.wandb_seed
 if load_sub == 'None':
     load_sub = None
 
