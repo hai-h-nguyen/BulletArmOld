@@ -85,7 +85,7 @@ def worker(remote, parent_remote, env_fn, planner_fn=None):
         remote.close()
         break
       else:
-        raise NotImplementerError
+        raise NotImplementedError
   except KeyboardInterrupt:
     print('MultiRunner worker: caught keyboard interrupt')
 
