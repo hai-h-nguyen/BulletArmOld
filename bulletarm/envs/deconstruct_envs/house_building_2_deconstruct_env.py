@@ -57,21 +57,39 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
     if not self._checkObjUpright(roofs[0]) or not BaseEnv.isSimValid(self):
       return self.num_class
     dist_blocks = self._getDistance(blocks[0], blocks[1]) 
-    if self._checkOnTop(blocks[0], roofs[0]) and self._checkOnTop(blocks[1], roofs[0]) and self._checkInBetween(roofs[0], blocks[0], blocks[1]):
+    if self._checkOnTop(blocks[0], roofs[0]) and \
+       self._checkOnTop(blocks[1], roofs[0]) and \
+       self._checkInBetween(roofs[0], blocks[0], blocks[1]):
       return 0
-    if self._isObjectHeld(roofs[0]) and dist_blocks < 2.2 * self.max_block_size:
-      if not self._checkOnTop(blocks[1], blocks[0]) and not self._checkOnTop(blocks[0], blocks[1]):
-        return 1
-    if self._isObjOnGround(blocks[0]) and self._isObjOnGround(blocks[1]) and self._isObjOnGround(roofs[0]):
-      if not roofs[0].isTouching(blocks[0]) and not roofs[0].isTouching(blocks[1]): 
-        if dist_blocks < 2.2 * self.max_block_size and not self._checkInBetween(roofs[0], blocks[0], blocks[1]):
-          return 2
-        if dist_blocks >= 2.2 * self.max_block_size:
-          return 4
-    if self._isObjectHeld(blocks[0]) and self._isObjOnGround(roofs[0]) and not roofs[0].isTouching(blocks[1]):
-        return 3
-    if self._isObjectHeld(blocks[1]) and self._isObjOnGround(roofs[0]) and not roofs[0].isTouching(blocks[0]):
-        return 3      
+    if self._isObjectHeld(roofs[0]) and \
+       dist_blocks < 2.2 * self.max_block_size and \
+       dist_blocks > 2.1 * self.max_block_size:
+      return 1
+    if self._isObjOnGround(blocks[0]) and \
+       self._isObjOnGround(blocks[1]) and \
+       self._isObjOnGround(roofs[0]) and \
+       not roofs[0].isTouching(blocks[0]) and \
+       not roofs[0].isTouching(blocks[1]) and \
+       dist_blocks < 2.2 * self.max_block_size and \
+       dist_blocks > 2.1 * self.max_block_size and \
+       not self._checkInBetween(roofs[0], blocks[0], blocks[1]):
+      return 2
+    if self._isObjOnGround(blocks[0]) and \
+       self._isObjOnGround(blocks[1]) and \
+       self._isObjOnGround(roofs[0]) and \
+       not roofs[0].isTouching(blocks[0]) and \
+       not roofs[0].isTouching(blocks[1]):
+      return 4
+    if self._isObjectHeld(blocks[0]) and \
+       self._isObjOnGround(blocks[1]) and \
+       self._isObjOnGround(roofs[0]) and \
+       not roofs[0].isTouching(blocks[1]):
+      return 3
+    if self._isObjectHeld(blocks[1]) and \
+       self._isObjOnGround(blocks[0]) and \
+       self._isObjOnGround(roofs[0]) and \
+       not roofs[0].isTouching(blocks[0]):
+      return 3      
     return self.num_class
 
 def createHouseBuilding2DeconstructEnv(config):

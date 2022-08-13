@@ -398,9 +398,9 @@ class MultiRunner(object):
       prev = self.get_true_abs()
       (states_, in_hands_, obs_), rewards, dones = self.step(actions_star, auto_reset=False)
       # TODO: debug in here
-      print('------')
+      # print('------')
      
-      print(np.max(obs[0].reshape(128,128)),np.min(obs[0].reshape(128,128)))
+      # print(np.max(obs[0].reshape(128,128)),np.min(obs[0].reshape(128,128)))
       print(prev)
       print(self.get_true_abs())
       plt.subplot(1, 2, 1)

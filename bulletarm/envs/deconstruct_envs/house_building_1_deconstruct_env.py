@@ -64,6 +64,7 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       for j in range(i+1,3):
         other = self.get_other(i,j)
         if (self._checkStack([blocks[i],blocks[j]]) and (self._isObjectHeld(blocks[other]))):
+          print(self._getDistance(blocks[i], blocks[j]))
           return 3
         if (self._checkStack([blocks[i],blocks[j]]) and (not self._isObjectHeld(blocks[other]))):
           return 4
