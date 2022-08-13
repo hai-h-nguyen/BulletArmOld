@@ -3,10 +3,9 @@ from escnn import gspaces
 from escnn import nn
 import numpy as np
 
-class EquiConv(torch.nn.Module):
+class EquiObs(torch.nn.Module):
     def __init__(self, num_subgroups, filter_sizes, filter_counts):
-    
-        super(EquiConv, self).__init__()
+        super(EquiObs, self).__init__()
         self.num_subgroups = num_subgroups
         self.filter_sizes = filter_sizes
         self.filter_counts = filter_counts

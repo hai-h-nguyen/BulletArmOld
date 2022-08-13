@@ -79,12 +79,12 @@ def saveModelAndInfo(logger, agent):
     agent.saveModel(os.path.join(logger.models_dir, 'snapshot'))
 
 def get_cls(classifier, obs, inhand):
-    obs = obs.clone().detach().type(torch.cuda.FloatTensor).to('cuda')
-    inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to('cuda')
+    obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
+    inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
     res = classifier([obs,inhand])
     return torch.argmax(res,dim=1)
 
-def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
+def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     states, in_hands, obs = envs.reset()
@@ -96,11 +96,14 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
     
     if debug:
         dataset = ListDataset()
-        create_folder('check_debug_collect_image')
+        create_folder('debug_outlier')
+        create_folder('debug_miss')
 
     cnt = 0
     while evaled < num_eval_episodes:
-        abs_states = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier, obs, in_hands)
+        true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
+        pred_abs_states = get_cls(classifier, obs, in_hands)
+        abs_states = true_abs_states #
         abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         if (render):
@@ -109,21 +112,26 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
 
         if (debug):
             for i in range(abs_states.shape[0]):
-                dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
-                dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-                dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-                dataset.add("ABS_STATE_INDEX", abs_states[i].cpu().detach().numpy().astype(np.int32))
-                plt.figure(figsize=(15,4))
-                plt.subplot(1,2,1)
-                plt.imshow(obs[i].reshape(128,128), cmap='gray')
-                plt.colorbar()
-                plt.subplot(1,2,2)
-                plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
-                plt.colorbar()
-                plt.suptitle(f"Label: {abs_states[i]}, State: {states[i]}")
-                plt.savefig(f'check_debug_collect_image/image_{cnt}.png')
-                plt.close()
-                cnt += 1
+                if (true_abs_states != pred_abs_states):
+                    dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
+                    dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
+                    dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
+                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states[i].cpu().detach().numpy().astype(np.int32))
+                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states[i].cpu().detach().numpy().astype(np.int32))
+                    plt.figure(figsize=(15,4))
+                    plt.subplot(1,2,1)
+                    plt.imshow(obs[i].reshape(128,128), cmap='gray')
+                    plt.colorbar()
+                    plt.subplot(1,2,2)
+                    plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
+                    plt.colorbar()
+                    plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
+                    if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
+                        plt.savefig(f'debug_outlier/image_{cnt}.png')
+                    else:
+                        plt.savefig(f'debug_miss/image_{cnt}.png')
+                    plt.close()
+                    cnt += 1
 
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
@@ -141,7 +149,8 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
                 R = 0
                 for r in reversed(temp_reward[i]):
                     R = r + gamma * R
-                logger.logEvalEpisode(temp_reward[i], discounted_return=R)
+                if (logger):
+                    logger.logEvalEpisode(temp_reward[i], discounted_return=R)
                 total_return += temp_reward[i][-1]
                 if(render):
                     print('return is',temp_reward[i][-1])
@@ -152,18 +161,19 @@ def evaluate(envs, agent,logger, wandb_logs=False,classifier=None,num_steps=0,de
     if (debug):
         dataset = dataset.to_array_dataset({
             "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
-            "ABS_STATE_INDEX": np.int32,
+            "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
         })
         dataset.metadata = {
             "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
         }
         print('get',dataset.size,'data samples')
-        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_.h5")
+        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{env}.h5")
 
     print(f'evaluate results: {total_return/num_eval_episodes}')
     Wandb_logging(f'mean evaluate return',total_return/num_eval_episodes,num_steps,wandb_logs)
-    logger.logEvalInterval()
-    logger.writeLog()
+    if (logger):
+        logger.logEvalInterval()
+        logger.writeLog()
     if not no_bar:
         eval_bar.close()
     
@@ -172,10 +182,10 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
         try:
             wandb.log({key:value},step = step_idx)
         except:
-            pass
+            print(f'[INFO] {key}: {value}')
 
-def train(wandb_logs = True):
-    print(f'trainning for {max_train_step} step')
+def train(wandb_logs = 0):
+    print(f'trainning for {max_train_step} step on {env}')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
@@ -192,13 +202,14 @@ def train(wandb_logs = True):
     eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
+    print(f'num class = {num_classes}')
 
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
     # load classifier
     # classifier = block_stacking_perfect_classifier()
-    classifier = load_classifier(goal_str = env,num_classes=7)
+    classifier = load_classifier(goal_str = env,num_classes=num_classes)
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
@@ -263,7 +274,9 @@ def train(wandb_logs = True):
         else:
             eps = exploration.value(logger.num_eps)
         is_expert = 0
-        abs_states = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier,obs,in_hands)
+        true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
+        pred_abs_states = get_cls(classifier,obs,in_hands)
+        abs_states = true_abs_states #
         abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         for i in range(num_processes):
@@ -284,8 +297,9 @@ def train(wandb_logs = True):
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
 
-        # abs_states_next = classifier([torch.tensor(obs_).type(torch.cuda.FloatTensor).to('cuda'), torch.tensor(in_hands_).type(torch.cuda.FloatTensor).to('cuda')])
-        abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) #get_cls(classifier, obs_, in_hands_)
+        true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
+        pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
+        abs_states_next = true_abs_states_next
         abs_states_next = remove_outlier(abs_states_next,num_classes)
         abs_goals_next =  update_abs_goals(abs_states_next)
         goals_achieved = (abs_states_next == abs_goals)
@@ -344,7 +358,7 @@ def train(wandb_logs = True):
             if eval_thread is not None:
                 eval_thread.join()
             eval_agent.copyNetworksFrom(agent)
-            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,logger, wandb_logs,classifier,logger.num_training_steps,False))
+            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,num_eval_episodes,logger, wandb_logs,classifier,logger.num_training_steps,False))
             eval_thread.start()
 
         if logger.num_steps % (num_processes * save_freq) == 0:
@@ -359,15 +373,15 @@ def train(wandb_logs = True):
     eval_envs.close()
 
 if __name__ == '__main__':
-    train()
+    train(wandb_logs)
 
     #------------- eval ------------#
-    # load_model_pre = 'output/dqn_asr_equ_resu_df_flip_house_building_3/2022-07-28.12:48:32/models/'
-    # classifier = load_classifier(goal_str = '2b1l2r',use_equivariant = False)
+    # load_model_pre = '/home/hnguyen/huy/BulletArm/output/dqn_asr_equ_resu_df_flip_house_building_1_save/2022-08-09.23:40:50/models/'
+    # classifier = load_classifier(goal_str = env,num_classes=7)
     # render = False
-
+    
     # env_config['render'] = render
-    # eval_envs = EnvWrapper(2, env, env_config, planner_config)
+    # eval_envs = EnvWrapper(1, env, env_config, planner_config)
     # num_objects = eval_envs.getNumObj()
     # num_classes = 2 * num_objects - 1 
     # eval_agent = createAgent(num_classes,test=True)
@@ -375,5 +389,5 @@ if __name__ == '__main__':
     # if load_model_pre:
     #     eval_agent.loadModel(load_model_pre)
     # eval_agent.eval()
-    # evaluate(envs=eval_envs,agent=eval_agent,classifier=classifier, debug=True,render=render)
+    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
     # eval_envs.close()

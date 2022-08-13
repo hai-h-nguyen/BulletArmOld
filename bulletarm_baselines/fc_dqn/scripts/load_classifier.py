@@ -120,17 +120,17 @@ def build_classifier(num_classes, use_equivariant=False):
 def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
     classifier.train()
-    # if use_proser:
-    #     classifier.create_dummy(dummy_number=dummy_number)
-    #     if use_equivariant:
-    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt"))
-    #     else:
-    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt"))
-    # else:
-    #     if use_equivariant:
-    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
-    #     else:
-    #         classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
+    if use_proser:
+        classifier.create_dummy(dummy_number=dummy_number)
+        if use_equivariant:
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_str}.pt"))
+        else:
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_str}.pt"))
+    else:
+        if use_equivariant:
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
+        else:
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.pt"))
     classifier.to(device)
     classifier.eval()
     print('------\t Successfully load classifier \t-----------')

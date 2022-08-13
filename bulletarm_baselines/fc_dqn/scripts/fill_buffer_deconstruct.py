@@ -205,10 +205,15 @@ def fillDeconstructUsingRunner(agent, replay_buffer):
   decon_envs.close()
 
 def get_cls(classifier, obs, inhand):
-    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to('cuda')
-    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to('cuda')
+    obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to(device)
+    inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to(device)
     res = classifier([obs,inhand])
     return torch.argmax(res,dim=1)
+
+def remove_outlier(abs_states,num_classes):
+    with torch.no_grad():
+        max_abs = torch.full(abs_states.shape,num_classes - 1,dtype=abs_states.dtype).to(device)
+        return torch.min(abs_states, max_abs)
 
 def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   if env in ['block_stacking',
@@ -236,9 +241,21 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
-    abs_state = torch.tensor(abs_state).to(device)
-    abs_state_next = torch.tensor(abs_state_next).to(device)
-    # abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
+    true_abs_state = torch.tensor(abs_state).to(device)
+    pred_abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
+    abs_state = true_abs_state
+    abs_state = remove_outlier(abs_state,5)
+    true_abs_state_next = torch.tensor(abs_state_next).to(device)
+    pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))
+    abs_state_next = true_abs_state_next
+    abs_state_next = remove_outlier(abs_state_next,5)
+
+    # if (pred_abs_state != true_abs_state):
+    #     print(f'fail 1: {pred_abs_state}\t{true_abs_state}')
+    # if (true_abs_state_next != pred_abs_state_next):
+    #     print(f'fail 2: {pred_abs_state_next}\t{true_abs_state_next}')
+
+
     abs_goal = update_abs_goals(abs_state)
     abs_goal_next =  update_abs_goals(abs_state_next)
 
@@ -293,6 +310,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
         deconstruct_env = env + '_deconstruct'
+        decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
                     '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r']:
         deconstruct_env = 'house_building_x' + '_deconstruct'
@@ -300,7 +318,6 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     else:
         raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
     print(f'==================\t Collecting {env} dataset\t===================')
-    num_processes = 1
     decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     num_objects = decon_envs.getNumObj()
     num_classes = 2*num_objects-1
@@ -313,9 +330,8 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
-        num_episodes = 5
+        num_episodes = 20
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
-    exit()
     decon_envs.close()
     transitions.reverse()
 
@@ -359,6 +375,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
             plt.colorbar()
             plt.suptitle(f"Label: {labels[i]}, State: {states[i]}")
             plt.savefig(f'check_collect_image/image_{i}.png')
+        exit()
             
     dataset = dataset.to_array_dataset({
         "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
