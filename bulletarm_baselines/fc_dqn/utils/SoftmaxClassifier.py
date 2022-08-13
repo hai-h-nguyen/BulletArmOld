@@ -47,7 +47,6 @@ class SoftmaxClassifier(nn.Module):
         maxdummylogit, _ = torch.max(dummy_logits, 1)
         maxdummylogit = maxdummylogit.view(-1, 1)
         totallogits = torch.cat((logits, maxdummylogit), dim=1)
-        print(totallogits)
         embedding = nn.functional.softmax(totallogits/temp, dim=1)
         return torch.argmax(embedding)
 
