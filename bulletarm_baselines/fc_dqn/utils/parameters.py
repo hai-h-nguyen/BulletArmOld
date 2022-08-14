@@ -33,7 +33,7 @@ training_group.add_argument('--gamma', type=float, default=0.95, help='The disco
 training_group.add_argument('--explore', type=int, default=0, help='The number of exploration steps')
 training_group.add_argument('--fixed_eps', action='store_true', help='If true, fix the epsilon at the final value')
 training_group.add_argument('--init_eps', type=float, default=0.5, help='The initial value of the epsilon schedule')
-training_group.add_argument('--final_eps', type=float, default=0.01, help='The final value of the epsilon schedule')
+training_group.add_argument('--final_eps', type=float, default=0.0, help='The final value of the epsilon schedule')
 training_group.add_argument('--training_iters', type=int, default=1, help='The number of training iterations per step')
 training_group.add_argument('--training_offset', type=int, default=100, help='The minimal number of transitions to start training')
 training_group.add_argument('--max_train_step', type=int, default=10000, help='The maximal number of training steps')
@@ -55,6 +55,7 @@ training_group.add_argument('--max_z', type=float, default=0.20, help='The max z
 training_group.add_argument('--equi_n', type=int, default=4, help='The order of the equivariant group for equivariant networks')
 training_group.add_argument('--aug', type=strToBool, default=False, help='If true, perform RAD data augmentation at each sample step')
 training_group.add_argument('--aug_type', type=str, choices=['se2', 'cn', 't', 'shift'], default='se2', help='The type of data augmentation')
+training_group.add_argument('--use_classifier', type=int, default=0)
 
 eval_group = parser.add_argument_group('eval')
 eval_group.add_argument('--num_eval_processes', type=int, default=5, help='The number of parallel environments for evaluation')
@@ -156,6 +157,7 @@ equi_n = args.equi_n
 
 aug = args.aug
 aug_type = args.aug_type
+use_classifier = args.use_classifier
 
 # eval
 num_eval_processes = args.num_eval_processes

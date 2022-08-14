@@ -242,12 +242,19 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
     true_abs_state = torch.tensor(abs_state).to(device)
-    pred_abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))
-    abs_state = true_abs_state
+    pred_abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))[0]
+    if (use_classifier):
+        abs_state = pred_abs_state
+    else:
+        abs_state = true_abs_state
     abs_state = remove_outlier(abs_state,5)
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
-    pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))
-    abs_state_next = true_abs_state_next
+    pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
+
+    if (use_classifier):
+        abs_state_next = pred_abs_state_next 
+    else:
+        abs_state_next = true_abs_state_next 
     abs_state_next = remove_outlier(abs_state_next,5)
 
     # if (pred_abs_state != true_abs_state):
@@ -383,9 +390,9 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         "ABS_STATE_INDEX": np.int32,
     })
     print("Number collected data sample: ", dataset.size)
-    # dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
+    dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=50000, debug=True)
+    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=1000, debug=False)

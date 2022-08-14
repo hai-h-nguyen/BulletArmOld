@@ -273,7 +273,7 @@ def tsne_visualize(classifier, dataset):
                         palette=sns.color_palette("hls", num_classes), data=df).set(title=f"{goal_string}")
     plt.savefig(f"{goal_string}")
 
-def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
+def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1, device = None):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
     classifier.train()
     if use_proser:
@@ -295,14 +295,14 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='house_building_1', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='house_building_3', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
     ap.add_argument('-lr', '--learning_rate', default=1e-3, help='Learning rate')
     ap.add_argument('-wd', '--weight_decay', default=1e-5, help='Weight decay')
-    ap.add_argument('-ufm', '--use_equivariant', default=True, help='Using equivariant or not')
-    ap.add_argument('-up', '--use_proser', default=True, help='Using Proser (open-set recognition) or not')
+    ap.add_argument('-ufm', '--use_equivariant', default=False, help='Using equivariant or not')
+    ap.add_argument('-up', '--use_proser', default=False, help='Using Proser (open-set recognition) or not')
     ap.add_argument('-dn', '--dummy_number', default=5, help='Number of dummy classifiers')
     ap.add_argument('-fep', '--finetune_epoch', default=30, help='Number of finetune epoch')
     ap.add_argument('-ld0', '--lamda0', default=0.01, help='Weight for data placeholder loss')
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     dataset, valid_dataset, test_dataset = load_dataset(goal_str=goal_string)
     epoch_size = dataset["OBS"].shape[0] // batch_size
 
-    eval_dataset = load_dataset(goal_str=goal_string, eval=True)
+    # eval_dataset = load_dataset(goal_str=goal_string, eval=True)
     # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'])
     # eval_online, _ = validate_model(classifier=classifier, finetune=False)
     # print(f"Eval Acc: ", eval_online )
@@ -433,8 +433,8 @@ if __name__ == "__main__":
         test_loss = validate(classifier=classifier, valid_dataset=test_dataset)
         print(f"Test Loss: {test_loss[0]} and Test Accuracy: {test_loss[1]}")
 
-        eval_online, _ = validate_model(classifier=classifier, finetune=False)
-        print(f"Eval Acc: ", eval_online )
+        # eval_online, _ = validate_model(classifier=classifier, finetune=False)
+        # print(f"Eval Acc: ", eval_online )
 
         
         if not args['use_equivariant']:

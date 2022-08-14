@@ -31,7 +31,8 @@ from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner,train_fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.load_classifier import load_classifier,block_stacking_perfect_classifier
+from bulletarm_baselines.fc_dqn.scripts.load_classifier import block_stacking_perfect_classifier
+from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
@@ -103,7 +104,10 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
     while evaled < num_eval_episodes:
         true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
         pred_abs_states = get_cls(classifier, obs, in_hands)
-        abs_states = true_abs_states #
+        if (use_classifier):
+            abs_states = pred_abs_states 
+        else:
+            abs_states = true_abs_states 
         abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         if (render):
@@ -209,7 +213,13 @@ def train(wandb_logs = 0):
 
     # load classifier
     # classifier = block_stacking_perfect_classifier()
-    classifier = load_classifier(goal_str = env,num_classes=num_classes)
+    if (use_classifier):
+        print('---- use abstract state from classifier  ----')
+    else:
+        print('---- use true abstract state from environment    -----')
+    
+    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=True, use_proser=False, dummy_number=1,device=device)
+    
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
@@ -276,7 +286,10 @@ def train(wandb_logs = 0):
         is_expert = 0
         true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
         pred_abs_states = get_cls(classifier,obs,in_hands)
-        abs_states = true_abs_states #
+        if (use_classifier):
+            abs_states = pred_abs_states 
+        else:
+            abs_states = true_abs_states 
         abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)
         for i in range(num_processes):
@@ -299,7 +312,10 @@ def train(wandb_logs = 0):
 
         true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
         pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
-        abs_states_next = true_abs_states_next
+        if (use_classifier):
+            abs_states_next = pred_abs_states_next 
+        else:
+            abs_states_next = true_abs_states_next 
         abs_states_next = remove_outlier(abs_states_next,num_classes)
         abs_goals_next =  update_abs_goals(abs_states_next)
         goals_achieved = (abs_states_next == abs_goals)
