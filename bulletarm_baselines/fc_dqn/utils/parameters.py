@@ -86,6 +86,7 @@ logging_group.add_argument('--load_sub', type=str, default=None)
 logging_group.add_argument('--wandb_group', type=str, default=None)
 logging_group.add_argument('--wandb_seed', type=str, default=None)
 logging_group.add_argument('--wandb_logs', type=int, default=0)
+logging_group.add_argument('--get_bad_pred', type=int, default=0)
 
 args = parser.parse_args()
 # env
@@ -194,6 +195,7 @@ load_sub = args.load_sub
 wandb_group = args.wandb_group
 wandb_seed = args.wandb_seed
 wandb_logs = args.wandb_logs
+get_bad_pred = args.get_bad_pred
 if load_sub == 'None':
     load_sub = None
 
