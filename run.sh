@@ -8,6 +8,6 @@ export PYTHONPATH=/home/hnguyen/huy/BulletArm/:$PYTHONPATH
 # python bulletarm_baselines/fc_dqn/scripts/fill_buffer_deconstruct.py
 
 # -----------train classifier -------------- #
-# python bulletarm_baselines/fc_dqn/scripts/all_about_classifier.py
+# python bulletarm_baselines/fc_dqn/scripts/all_about_classifier.py -gs house_building_1 -ufm False -up False
 
 python multi_run.py
