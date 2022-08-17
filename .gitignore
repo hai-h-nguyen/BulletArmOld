@@ -11,6 +11,8 @@ mnp.txt
 abc/
 debug_miss/
 debug_outlier/
+debug_miss*/*
+debug_outlier*/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
