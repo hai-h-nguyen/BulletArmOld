@@ -56,7 +56,7 @@ def createAgent(num_classes,test=False):
         fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, initialize=initialize).to(device)
     # equivariant asr q1 with dynamic filter using dihedral group
     elif model == 'equ_resu_df_flip':
-        print('choose q1 here')
+        print('choose EquResUDFReg as Q1')
         fcn = EquResUDFReg(1, fcn_out, domain_shape=(1, diag_length, diag_length), patch_shape=patch_shape, N=equi_n, flip=True,num_classes=num_classes, initialize=initialize).to(device)
     # equivariant fcn with dynamic filter
     elif model == 'equ_resu_df_nout':
@@ -101,7 +101,7 @@ def createAgent(num_classes,test=False):
                 q2 = EquShiftQ2DF3P40(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
                                    last_quotient=True, initialize=initialize).to(device)
             else:
-                print('choose q2 here')
+                print('choose EquShiftQ2DF3 as q2')
                 q2 = EquShiftQ2DF3(q2_input_shape, num_rotations, num_primitives, kernel_size=7, n_hidden=32, quotient=False,
                                     last_quotient=True, initialize=initialize).to(device)
         ###################################################################################
@@ -122,13 +122,14 @@ def createAgent(num_classes,test=False):
         if alg.find('asr') > -1:
             # ASR
             if alg == 'dqn_asr':
-                print('agent here')
+                print('choose DQN3DASR as agent')
                 agent = DQN3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
                                  num_rotations, rz_range,num_classes=num_classes)
                 agent.initNetwork(fcn, q2)
             elif alg == 'margin_asr':
+                print('choose Margin3DASR as agent')
                 agent = Margin3DASR(workspace, heightmap_size, device, lr, gamma, sl, num_primitives, patch_size,
-                                    num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta)
+                                    num_rotations, rz_range, margin, margin_l, margin_weight, margin_beta,num_classes=num_classes)
                 agent.initNetwork(fcn, q2)
             else:
                 raise NotImplementedError

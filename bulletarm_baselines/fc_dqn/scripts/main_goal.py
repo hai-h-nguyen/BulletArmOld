@@ -196,7 +196,6 @@ def train(wandb_logs = 0):
         group=wandb_group, name=wandb_seed, entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
-
     eval_thread = None
     start_time = time.time()
     if seed is not None:
