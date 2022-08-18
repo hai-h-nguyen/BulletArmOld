@@ -9,8 +9,8 @@ bulletarm_baselines/fc_dqn/classifiers/
 abc.txt
 mnp.txt
 abc/
-debug_miss/
-debug_outlier/
+debug_miss*/
+debug_outlier*/
 TSNE/
 
 # Byte-compiled / optimized / DLL files

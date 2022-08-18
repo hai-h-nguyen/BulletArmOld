@@ -97,8 +97,8 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
     
     if debug:
         dataset = ListDataset()
-        create_folder('debug_outlier')
-        create_folder('debug_miss')
+        create_folder(f'debug_outlier_{env}')
+        create_folder(f'debug_miss_{env}')
 
     cnt = 0
     while evaled < num_eval_episodes:
@@ -131,9 +131,9 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
                     plt.colorbar()
                     plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
                     if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                        plt.savefig(f'debug_outlier/image_{cnt}.png')
+                        plt.savefig(f'debug_outlier_{env}/image_{cnt}.png')
                     else:
-                        plt.savefig(f'debug_miss/image_{cnt}.png')
+                        plt.savefig(f'debug_miss_{env}/image_{cnt}.png')
                     plt.close()
                     cnt += 1
 
@@ -207,7 +207,7 @@ def train(wandb_logs = 0):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-
+    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=False, use_proser=False, dummy_number=1,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
@@ -217,8 +217,6 @@ def train(wandb_logs = 0):
         print('---- use abstract state from classifier  ----')
     else:
         print('---- use true abstract state from environment    -----')
-    
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=True, use_proser=False, dummy_number=1,device=device)
     
 
     if load_model_pre:
@@ -271,8 +269,8 @@ def train(wandb_logs = 0):
     train_return = []
     if (get_bad_pred):
         dataset = ListDataset()
-        create_folder('debug_outlier')
-        create_folder('debug_miss')
+        create_folder(f'debug_outlier_{env}')
+        create_folder(f'debug_miss_{env}')
         cnt = 0
     while logger.num_training_steps < max_train_step + 1:
         if (logger.num_training_steps%eval_freq == 0 and logger.num_training_steps > 0):
@@ -314,9 +312,9 @@ def train(wandb_logs = 0):
                     plt.colorbar()
                     plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
                     if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                        plt.savefig(f'debug_outlier/image_{cnt}.png')
+                        plt.savefig(f'debug_outlier_{env}/image_{cnt}.png')
                     else:
-                        plt.savefig(f'debug_miss/image_{cnt}.png')
+                        plt.savefig(f'debug_miss_{env}/image_{cnt}.png')
                     plt.close()
                     cnt += 1
             if (logger.num_training_steps == 1000):
