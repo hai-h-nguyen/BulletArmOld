@@ -125,6 +125,7 @@ def build_classifier(num_classes, use_equivariant=False):
     encoder.output_size = 128
 
     classifier = SoftmaxClassifier(encoder, conv_encoder, intermediate_fc, num_classes)
+    classifier.to(device)
     return classifier
 
 
@@ -254,7 +255,7 @@ def tsne_visualize(classifier, dataset):
     for i in range(dataset.size):
         obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
         inhand = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(device)
-        out.append(classifier.encoder([obs, inhand]).cpu().detach().numpy().reshape(256))
+        out.append(classifier.encoder([obs, inhand]).cpu().detach().numpy().reshape(128))
         label.append([dataset["ABS_STATE_INDEX"][i]])
     out = np.array(out)
     label = np.array(label).reshape(-1,)
@@ -263,7 +264,7 @@ def tsne_visualize(classifier, dataset):
 
     tsne = TSNE(n_components=2, verbose=1, random_state=123, init='pca')
     tsne.fit_transform(out)
-
+    create_folder("TSNE")
     df = pd.DataFrame()
     df["y"] = label
     df['comp-1'] = out[:, 0]
@@ -271,7 +272,8 @@ def tsne_visualize(classifier, dataset):
 
     sns_plot = sns.scatterplot(x='comp-1', y='comp-2', hue=df.y.tolist(),
                         palette=sns.color_palette("hls", num_classes), data=df).set(title=f"{goal_string}")
-    plt.savefig(f"{goal_string}")
+    
+    plt.savefig(f"TSNE/{goal_string}.png")
 
 def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1, device = None):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
@@ -295,7 +297,7 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='house_building_3', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='block_stacking', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
