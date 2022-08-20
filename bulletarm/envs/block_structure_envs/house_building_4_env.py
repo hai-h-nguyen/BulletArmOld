@@ -169,7 +169,7 @@ class HouseBuilding4Env(BaseEnv):
                    not blocks[6-i-j-k].isTouching(roofs[0]) and \
                    not blocks[k].isTouching(blocks[6-i-j-k]):
                    return 6
-              if self._getDistance(blocks[i], blocks[j]) < 2.2 * self.max_block_size and \
+              if self._getDistance(blocks[i], blocks[j]) < 3.0 * self.max_block_size and \
                    self._isObjectHeld(bricks[0]) and \
                    self._isObjOnGround(roofs[0]) and \
                    self._isObjOnGround(blocks[i]) and \
@@ -185,7 +185,7 @@ class HouseBuilding4Env(BaseEnv):
                    not roofs[0].isTouching(blocks[6-i-j-k]) and \
                    not self.check_block_touching(blocks):
                    return 7
-              if self._getDistance(blocks[i], blocks[j]) < 2.2 * self.max_block_size and \
+              if self._getDistance(blocks[i], blocks[j]) < 3.0 * self.max_block_size and \
                    self._isObjOnGround(bricks[0]) and \
                    self._isObjOnGround(roofs[0]) and \
                    self._isObjOnGround(blocks[i]) and \
