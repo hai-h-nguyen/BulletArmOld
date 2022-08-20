@@ -84,9 +84,9 @@ logging_group.add_argument('--no_bar', action='store_true')
 logging_group.add_argument('--time_limit', type=float, default=10000)
 logging_group.add_argument('--load_sub', type=str, default=None)
 logging_group.add_argument('--wandb_group', type=str, default=None)
-logging_group.add_argument('--wandb_seed', type=str, default=None)
 logging_group.add_argument('--wandb_logs', type=int, default=0)
 logging_group.add_argument('--get_bad_pred', type=int, default=0)
+logging_group.add_argument('--classifier_name', type=str, default=None)
 
 args = parser.parse_args()
 # env
@@ -192,8 +192,9 @@ log_sub = args.log_sub
 no_bar = args.no_bar
 time_limit = args.time_limit
 load_sub = args.load_sub
-wandb_group = args.wandb_group
-wandb_seed = args.wandb_seed
+classifier_name = args.classifier_name
+wandb_group = f'{args.wandb_group}_{algorithm}_{classifier_name}'
+wandb_seed = f's{seed}'
 wandb_logs = args.wandb_logs
 get_bad_pred = args.get_bad_pred
 if load_sub == 'None':

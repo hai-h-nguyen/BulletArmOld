@@ -9,10 +9,9 @@ bulletarm_baselines/fc_dqn/classifiers/
 abc.txt
 mnp.txt
 abc/
-debug_miss*/
-debug_outlier*/
-eval_debug_miss*/
-eval_debug_outlier*/
+outlier/
+miss/
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

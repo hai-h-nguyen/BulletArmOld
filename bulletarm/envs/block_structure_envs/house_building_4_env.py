@@ -21,6 +21,7 @@ class HouseBuilding4Env(BaseEnv):
       config['num_objects'] = 6
     if 'max_steps' not in config:
       config['max_steps'] = 20
+    self.num_class = 2*config['num_objects'] - 1
     super(HouseBuilding4Env, self).__init__(config)
 
   def reset(self):

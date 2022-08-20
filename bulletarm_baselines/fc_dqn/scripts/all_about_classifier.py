@@ -279,9 +279,9 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
     if use_proser:
         classifier.create_dummy(dummy_number=dummy_number)
         if use_equivariant:
-            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt"))
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_str}.pt"))
         else:
-            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt"))
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_str}.pt"))
     else:
         if use_equivariant:
             classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
