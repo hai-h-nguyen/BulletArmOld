@@ -4,6 +4,7 @@ import numpy.random as npr
 import numpy as np
 from itertools import combinations
 from bulletarm.envs.deconstruct_envs.deconstruct_env import DeconstructEnv
+from bulletarm.envs.base_env import BaseEnv
 from bulletarm.pybullet.utils import constants
 
 class BlockStackingDeconstructEnv(DeconstructEnv):
