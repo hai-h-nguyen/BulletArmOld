@@ -18,6 +18,7 @@ class BlockStackingEnv(BaseEnv):
       config['num_objects'] = 4
     if 'max_steps' not in config:
       config['max_steps'] = 10
+    self.num_class = config['num_objects'] * 2 - 1
     super(BlockStackingEnv, self).__init__(config)
 
   def reset(self):
@@ -43,6 +44,30 @@ class BlockStackingEnv(BaseEnv):
   def _checkTermination(self):
     ''''''
     return self._checkStack()
+
+  def get_true_abs_state(self):
+    blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
+    if not BaseEnv.isSimValid(self):
+      return self.num_class
+    for i in range(4):
+      for j in range(4):
+        for k in range(4):
+          if i != j and j != k and i != k:
+            if self._checkOnTop(blocks[i], blocks[j]) and self._checkOnTop(blocks[j], blocks[k]) and self._checkOnTop(blocks[k], blocks[6-i-j-k]):
+              return 0
+            elif self._checkOnTop(blocks[i], blocks[j]) and self._checkOnTop(blocks[j], blocks[k]) and self._isObjectHeld(blocks[6-i-j-k]):
+              return 1
+            elif self._checkOnTop(blocks[i], blocks[j]) and self._checkOnTop(blocks[j], blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]):
+              return 2
+            elif self._checkOnTop(blocks[i], blocks[j]) and self._isObjectHeld(blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]):
+              return 3
+            elif self._checkOnTop(blocks[i], blocks[j]) and self._isObjOnGround(blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]):
+              return 4
+            elif self._isObjOnGround(blocks[i]) and self._isObjOnGround(blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]) and self._isObjectHeld(blocks[j]):
+              return 5
+            elif self._isObjOnGround(blocks[i]) and self._isObjOnGround(blocks[j]) and self._isObjOnGround(blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]):
+              return 6 
+    return self.num_class
 
 def createBlockStackingEnv(config):
   return BlockStackingEnv(config)

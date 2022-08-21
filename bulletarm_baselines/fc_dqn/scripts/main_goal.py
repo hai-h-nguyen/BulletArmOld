@@ -347,7 +347,6 @@ def train(wandb_logs = 0):
 
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
-
         true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
         pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
         if (use_classifier):
@@ -429,22 +428,22 @@ def train(wandb_logs = 0):
     eval_envs.close()
 
 if __name__ == '__main__':
-    # train(wandb_logs)
-
+    print('---------------------    trainning phrase    -------------------------')
+    train(wandb_logs)
     #------------- eval ------------#
-    print('---------------------evaluate phrase-------------------------')
-    render = False
-    env_config['render'] = render
-    eval_envs = EnvWrapper(1, env, env_config, planner_config)
-    num_objects = eval_envs.getNumObj()
-    num_classes = 2 * num_objects - 1 
-    load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    print('---------------------    evaluate phrase     -------------------------')
+    # render = False
+    # env_config['render'] = render
+    # eval_envs = EnvWrapper(1, env, env_config, planner_config)
+    # num_objects = eval_envs.getNumObj()
+    # num_classes = 2 * num_objects - 1 
+    # load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
+    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
 
-    eval_agent = createAgent(num_classes,test=True)
-    eval_agent.train()
-    if load_model_pre:
-        eval_agent.loadModel(load_model_pre)
-    eval_agent.eval()
-    evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
-    eval_envs.close()
+    # eval_agent = createAgent(num_classes,test=True)
+    # eval_agent.train()
+    # if load_model_pre:
+    #     eval_agent.loadModel(load_model_pre)
+    # eval_agent.eval()
+    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
+    # eval_envs.close()

@@ -17,6 +17,7 @@ class BlockStackingDeconstructEnv(DeconstructEnv):
       config['num_objects'] = 4
     if 'max_steps' not in config:
       config['max_steps'] = 10
+    self.num_class = config['num_objects'] * 2 - 1
     super(BlockStackingDeconstructEnv, self).__init__(config)
 
   def checkStructure(self):
@@ -54,6 +55,7 @@ class BlockStackingDeconstructEnv(DeconstructEnv):
               return 5
             elif self._isObjOnGround(blocks[i]) and self._isObjOnGround(blocks[j]) and self._isObjOnGround(blocks[k]) and self._isObjOnGround(blocks[6-i-j-k]):
               return 6 
+    return self.num_class
 
 def createBlockStackingDeconstructEnv(config):
   return BlockStackingDeconstructEnv(config)
