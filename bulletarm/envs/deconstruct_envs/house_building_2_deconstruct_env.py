@@ -53,6 +53,11 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
   def get_true_abs_state(self):
     blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
     roofs = list(filter(lambda x: self.object_types[x] == constants.ROOF, self.objects))
+    print('mbs: ', self.max_block_size)
+    print('2.2mbs: ', 2.2*self.max_block_size)
+    print('3mbs: ', 3*self.max_block_size)
+
+
     
     if not self._checkObjUpright(roofs[0]) or not BaseEnv.isSimValid(self):
       return self.num_class

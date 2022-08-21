@@ -58,3 +58,4 @@ class BlockStackingDeconstructEnv(DeconstructEnv):
             
 def createBlockStackingDeconstructEnv(config):
   return BlockStackingDeconstructEnv(config)
+  
