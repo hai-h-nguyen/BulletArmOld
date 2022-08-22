@@ -193,7 +193,7 @@ def train(wandb_logs = 0):
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='longdinh')
+        group=wandb_group, name=wandb_seed, entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -207,7 +207,7 @@ def train(wandb_logs = 0):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number)
+    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
