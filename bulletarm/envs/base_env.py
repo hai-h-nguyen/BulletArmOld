@@ -995,8 +995,8 @@ class BaseEnv:
     Returns: True in point is within workspace, False otherwise
     '''
 
-    return p[0] > self.workspace[0][0] - 0.01 and p[0] < self.workspace[0][1] + 0.01 and \
-           p[1] > self.workspace[1][0] - 0.01 and p[1] < self.workspace[1][1] + 0.01 and \
+    return p[0] > self.workspace[0][0] - 0.001 and p[0] < self.workspace[0][1] + 0.001 and \
+           p[1] > self.workspace[1][0] - 0.001 and p[1] < self.workspace[1][1] + 0.001 and \
            p[2] > self.workspace[2][0] and p[2] < self.workspace[2][1]
 
   def getInHandImage(self, heightmap, x, y, z, rot, next_heightmap):
@@ -1076,18 +1076,17 @@ class BaseEnv:
       return np.zeros((1, self.in_hand_size, self.in_hand_size))
 
   # def _isPointInWorkspace(self, p):
-  #   '''
-  #   Checks if the given point is within the workspace
-
-  #   Args:
-  #     - p: [x, y, z] point
-
-  #   Returns: True in point is within workspace, False otherwise
-  #   '''
-  #   # print('bbbbbbbbbbbbbbbbbb')
-  #   return self.workspace[0][0] < p[0] < self.workspace[0][1] and \
-  #          self.workspace[1][0] < p[1] < self.workspace[1][1] and \
-  #          self.workspace[2][0] < p[2] < self.workspace[2][1]
+    # '''
+    # Checks if the given point is within the workspace
+# 
+    # Args:
+      # - p: [x, y, z] point
+# 
+    # Returns: True in point is within workspace, False otherwise
+    # '''
+    # return self.workspace[0][0] < p[0] < self.workspace[0][1] and \
+          #  self.workspace[1][0] < p[1] < self.workspace[1][1] and \
+          #  self.workspace[2][0] < p[2] < self.workspace[2][1]
 
   def getStateDict(self):
     self.robot.saveState()
