@@ -62,7 +62,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         return dataset, valid_dataset, test_dataset
 
 
-def build_classifier(num_classes, use_equivariant=False):
+def build_classifier(num_classes,device, use_equivariant=False):
     """
     Build model classifier
 
@@ -282,8 +282,8 @@ def tsne_visualize(classifier, dataset):
     
     plt.savefig(f"TSNE/{goal_string}.png")
 
-def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
-    classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
+def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1,device=None):
+    classifier = build_classifier(num_classes=num_classes,device=device, use_equivariant=use_equivariant)
     classifier.train()
     if use_proser:
         classifier.create_dummy(dummy_number=dummy_number)
