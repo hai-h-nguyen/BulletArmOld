@@ -429,6 +429,7 @@ def train(wandb_logs = 0):
 
 if __name__ == '__main__':
     print('---------------------    trainning phrase    -------------------------')
+    # wandb.login(key='ed44c646a708f75a7fe4e39aee3844f8bfe44858')
     train(wandb_logs)
     #------------- eval ------------#
     print('---------------------    evaluate phrase     -------------------------')
