@@ -781,6 +781,14 @@ class BaseEnv:
     dist = np.linalg.norm(middle_point - position0)
     return dist < threshold
 
+  def _largerADistance(self, obj0, obj1, threshold=None):
+    if not threshold:
+      threshold = self.max_block_size / 2
+    position0 = obj0.getXYPosition()
+    position1 = obj1.getXYPosition()
+    dist = np.linalg.norm(np.array(position0), np.array(position1), axis=0)
+    return dist > threshold
+
   def _checkOriSimilar(self, objects, threshold=np.pi/7):
     oris = list(map(lambda o: pb.getEulerFromQuaternion(o.getRotation())[2], objects))
     return np.allclose(oris, oris, threshold)

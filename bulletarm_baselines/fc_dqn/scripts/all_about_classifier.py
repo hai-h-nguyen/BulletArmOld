@@ -305,7 +305,7 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='block_stacking', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='1l2b1r', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     # tsne_visualize(classifier=classifier, dataset=dataset)
     # exit()
     # Build model
-    classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'])
+    classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'], device=device)
     classifier.train()
     if proser:
         if args['use_equivariant']:

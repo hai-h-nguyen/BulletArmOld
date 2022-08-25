@@ -9,10 +9,17 @@ from tqdm import tqdm
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset
 import matplotlib.pyplot as plt
+import os
 
 sys.path.append('./')
 sys.path.append('..')
 from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
+
+def create_folder(path):
+    try:
+        os.mkdir(path)
+    except:
+        print(f'[INFO] folder {path} existed, can not create new')
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
@@ -233,6 +240,10 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
     deconstruct_env = env + '_deconstruct'
+  elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
+                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r']:
+        deconstruct_env = 'house_building_x' + '_deconstruct'
+        env_config['goal_string'] = env
   else:
     raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
 #   env_config['render'] = True
@@ -319,7 +330,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         deconstruct_env = env + '_deconstruct'
         decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
-                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r']:
+                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r']:
         deconstruct_env = 'house_building_x' + '_deconstruct'
         env_config['goal_string'] = env
     else:
@@ -372,6 +383,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
                 dataset.add("DONES", 1)
                 dataset.add("ABS_STATE_INDEX", 0)
     if debug:
+        create_folder('check_collect_image')
         for i in range(len(states)):
             plt.figure(figsize=(15,4))
             plt.subplot(1,2,1)
@@ -395,4 +407,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='block_stacking', num_samples=50000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='1l2b2r', num_samples=50000, debug=True)

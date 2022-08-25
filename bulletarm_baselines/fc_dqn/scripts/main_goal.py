@@ -193,7 +193,7 @@ def train(wandb_logs = 0):
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='hmhuy')
+        group=wandb_group, name=wandb_seed, entity='longdinh')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -202,9 +202,18 @@ def train(wandb_logs = 0):
     if seed is not None:
         set_seed(seed)
     # setup env
-    envs = EnvWrapper(num_processes, env, env_config, planner_config)
-    eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
+    print(env)
+    if env in ['1l2b2r', '1l2b1r', '1l1b1r', '1l1l1r', '1l1l2r']:
+        env_config['goal_string'] = env
+        env_ = 'house_building_x'
+        envs = EnvWrapper(num_processes, env_, env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, env_, env_config, planner_config)
+    else:
+        envs = EnvWrapper(num_processes, env, env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
+
     num_objects = envs.getNumObj()
+    print(num_objects)
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
     classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
@@ -429,7 +438,7 @@ def train(wandb_logs = 0):
 
 if __name__ == '__main__':
     print('---------------------    trainning phrase    -------------------------')
-    # wandb.login(key='ed44c646a708f75a7fe4e39aee3844f8bfe44858')
+    # wandb.login()
     train(wandb_logs)
     #------------- eval ------------#
     print('---------------------    evaluate phrase     -------------------------')
