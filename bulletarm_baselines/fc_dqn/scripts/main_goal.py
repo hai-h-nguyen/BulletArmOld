@@ -187,6 +187,8 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
             wandb.log({key:value},step = step_idx)
         except:
             print(f'[INFO] {key}: {value}')
+    else:
+        print(f'[INFO] {key}: {value}')
 
 def train(wandb_logs = 0):
     print(f'trainning for {max_train_step} step on {env}')
@@ -362,9 +364,18 @@ def train(wandb_logs = 0):
             if goals_achieved[i].cpu().item() is False:
                 dones[i] = 1.0
             else:
-                success_goal[abs_goals[i]] += 1
                 if (abs_goals[i] == 0):
-                    rewards[i] = clone_rewards[i]
+                    rewards[i] = clone_rewards[i] - 1.0
+                    goals_achieved[i] = (rewards[i] == 0)
+                    if (goals_achieved[i].cpu().item() is True):
+                        success_goal[abs_goals[i]] += 1
+                    continue
+
+                if (dones[i]>0):
+                    goals_achieved[i] = not goals_achieved[i]
+                else:
+                    success_goal[abs_goals[i]] += 1
+
                     
         rewards = rewards.cpu()
         done_idxes = torch.nonzero(dones).squeeze(1)
