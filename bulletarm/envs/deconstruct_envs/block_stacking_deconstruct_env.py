@@ -108,7 +108,6 @@ class BlockStackingDeconstructEnv(DeconstructEnv):
           for j in range(self.num_obj-1):
             if self._checkOnTop(blocks_on_ground[j], blocks[i]):
               del blocks_on_ground[j]
-              print('kkk', len(blocks_on_ground))
               if not blocks[i].isTouching(blocks_on_ground[0]) and not blocks[i].isTouching(blocks_on_ground[1]):
                 return 4
     

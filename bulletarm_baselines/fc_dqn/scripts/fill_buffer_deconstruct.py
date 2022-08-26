@@ -237,6 +237,8 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
     raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
 #   env_config['render'] = True
   decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+  num_class = 2 * decon_envs.getNumObj() - 1
+  print(f'num_class in deconstruct env: {num_class}')
   cnt = 0
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
   for i, transition in enumerate(transitions):
@@ -247,7 +249,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state = pred_abs_state
     else:
         abs_state = true_abs_state
-    abs_state = remove_outlier(abs_state,5)
+    abs_state = remove_outlier(abs_state,num_class)
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
     pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
 
@@ -255,12 +257,8 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state_next = pred_abs_state_next 
     else:
         abs_state_next = true_abs_state_next 
-    abs_state_next = remove_outlier(abs_state_next,5)
+    abs_state_next = remove_outlier(abs_state_next,num_class)
 
-    # if (pred_abs_state != true_abs_state):
-    #     print(f'fail 1: {pred_abs_state}\t{true_abs_state}')
-    # if (true_abs_state_next != pred_abs_state_next):
-    #     print(f'fail 2: {pred_abs_state_next}\t{true_abs_state_next}')
 
 
     abs_goal = update_abs_goals(abs_state)

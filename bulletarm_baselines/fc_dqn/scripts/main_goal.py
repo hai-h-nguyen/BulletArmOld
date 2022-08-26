@@ -245,7 +245,7 @@ def train(wandb_logs = 0):
         replay_buffer = QLearningBufferExpert(buffer_size)
     else:
         raise NotImplementedError('buffer type in ["expert"]')
-        
+    tmp_buffers = [[] for _ in range(num_processes)]
     exploration = LinearSchedule(schedule_timesteps=explore, initial_p=init_eps, final_p=final_eps)
     print(f'explore scheduler for {explore} steps, from {init_eps} to {final_eps}')
 
@@ -390,7 +390,7 @@ def train(wandb_logs = 0):
         buffer_obs_ = getCurrentObs(in_hands_, obs_)
 
         for i in range(num_processes):
-            replay_buffer.add(
+            tmp_buffers[i].append(
                 ExpertTransition(states[i], buffer_obs[i], actions_star_idx[i], rewards[i], 
                                 states_[i], buffer_obs_[i], 
                                 #------------------#
@@ -401,6 +401,15 @@ def train(wandb_logs = 0):
                                 abs_states[i], abs_goals[i],
                                 abs_states_next[i],abs_goals_next[i])
             )
+
+        for j, idx in enumerate(done_idxes):
+            for i in range(len(tmp_buffers[idx])):
+                tmp = tmp_buffers[idx][i]
+                if (clone_rewards[idx]>0):
+                    tmp = tmp._replace(reward=tmp.reward + 0.1)
+                replay_buffer.add(tmp)
+            tmp_buffers[idx] = []
+
         logger.logStep(clone_rewards.cpu().numpy(), dones.cpu().numpy())
 
         states = copy.copy(states_)
