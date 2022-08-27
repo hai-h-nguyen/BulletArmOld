@@ -282,7 +282,10 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
       torch.tensor(state).float(),
       (torch.tensor(obs).float(), torch.tensor(in_hand).float()),
       actions_star_idx[0],
-      torch.tensor(reward).float(),
+      #------------------#
+    #   torch.tensor(reward).float(),
+      torch.tensor(0.1).float(),
+      #------------------#
       torch.tensor(next_state).float(),
       (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
       #------------------#

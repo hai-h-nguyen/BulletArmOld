@@ -12,9 +12,10 @@ def run_job(cmd):
     run(cmd)
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--file', type=str, default="cmd.yaml")
+    parser.add_argument('--file', type=str, default="cmd0.yaml")
     parser.add_argument('--n-workers', type=int, default=1)
     args = parser.parse_args()
+    print(args.file)
     with open(args.file) as f:
         content = f.readlines()
     cmds = [x.strip() for x in content]
