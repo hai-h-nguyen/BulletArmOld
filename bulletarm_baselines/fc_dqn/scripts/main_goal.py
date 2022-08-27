@@ -187,6 +187,8 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
             wandb.log({key:value},step = step_idx)
         except:
             print(f'[INFO] {key}: {value}')
+    else:
+        print(f'[INFO] {key}: {value}')
 
 def train(wandb_logs = 0):
     print(f'trainning for {max_train_step} step on {env}')
@@ -202,18 +204,14 @@ def train(wandb_logs = 0):
     if seed is not None:
         set_seed(seed)
     # setup env
-    print(env)
-    if env in ['1l2b2r', '1l2b1r', '1l1b1r', '1l1l1r', '1l1l2r']:
+    if env in ['1l1l1r', '1l1l2r', '1l2b2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
         env_config['goal_string'] = env
-        env_ = 'house_building_x'
-        envs = EnvWrapper(num_processes, env_, env_config, planner_config)
-        eval_envs = EnvWrapper(num_eval_processes, env_, env_config, planner_config)
-    else:
+        envs = EnvWrapper(num_processes, 'house_building_x', env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, 'house_building_x', env_config, planner_config)
+    else:    
         envs = EnvWrapper(num_processes, env, env_config, planner_config)
         eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
-
     num_objects = envs.getNumObj()
-    print(num_objects)
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
     classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
@@ -252,7 +250,7 @@ def train(wandb_logs = 0):
         replay_buffer = QLearningBufferExpert(buffer_size)
     else:
         raise NotImplementedError('buffer type in ["expert"]')
-        
+    tmp_buffers = [[] for _ in range(num_processes)]
     exploration = LinearSchedule(schedule_timesteps=explore, initial_p=init_eps, final_p=final_eps)
     print(f'explore scheduler for {explore} steps, from {init_eps} to {final_eps}')
 
@@ -371,9 +369,29 @@ def train(wandb_logs = 0):
             if goals_achieved[i].cpu().item() is False:
                 dones[i] = 1.0
             else:
-                success_goal[abs_goals[i]] += 1
                 if (abs_goals[i] == 0):
-                    rewards[i] = clone_rewards[i]
+                    rewards[i] = clone_rewards[i] - 1.0
+                    goals_achieved[i] = (rewards[i] == 0)
+                    if (goals_achieved[i].cpu().item() is True):
+                        success_goal[abs_goals[i]] += 1
+                    continue
+
+                if (dones[i]>0):
+                    # print('done i', dones[i])
+                    # print('goal achieved', goals_achieved[i].cpu().item())
+                    # plt.figure(figsize=(8, 8))
+                    # plt.subplot(1, 2, 1)
+                    # plt.imshow(obs[i].cpu().detach().numpy().reshape(128, 128))
+                    # plt.title(str(abs_states))
+                    # plt.subplot(1, 2, 2)
+                    # plt.imshow(obs_[i].cpu().detach().numpy().reshape(128, 128))
+                    # plt.title(str(abs_states_next))
+                    # plt.savefig(f'img_{i}_{logger.num_training_steps}.png')
+
+                    goals_achieved[i] = not goals_achieved[i]
+                else:
+                    success_goal[abs_goals[i]] += 1
+
                     
         rewards = rewards.cpu()
         done_idxes = torch.nonzero(dones).squeeze(1)
@@ -388,7 +406,7 @@ def train(wandb_logs = 0):
         buffer_obs_ = getCurrentObs(in_hands_, obs_)
 
         for i in range(num_processes):
-            replay_buffer.add(
+            tmp_buffers[i].append(
                 ExpertTransition(states[i], buffer_obs[i], actions_star_idx[i], rewards[i], 
                                 states_[i], buffer_obs_[i], 
                                 #------------------#
@@ -399,6 +417,15 @@ def train(wandb_logs = 0):
                                 abs_states[i], abs_goals[i],
                                 abs_states_next[i],abs_goals_next[i])
             )
+
+        for j, idx in enumerate(done_idxes):
+            for i in range(len(tmp_buffers[idx])):
+                tmp = tmp_buffers[idx][i]
+                if (clone_rewards[idx]>0):
+                    tmp = tmp._replace(reward=tmp.reward + 0.1)
+                replay_buffer.add(tmp)
+            tmp_buffers[idx] = []
+
         logger.logStep(clone_rewards.cpu().numpy(), dones.cpu().numpy())
 
         states = copy.copy(states_)
@@ -438,7 +465,6 @@ def train(wandb_logs = 0):
 
 if __name__ == '__main__':
     print('---------------------    trainning phrase    -------------------------')
-    # wandb.login()
     train(wandb_logs)
     #------------- eval ------------#
     print('---------------------    evaluate phrase     -------------------------')

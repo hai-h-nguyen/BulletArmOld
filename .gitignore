@@ -12,6 +12,7 @@ abc/
 outlier/
 miss/
 data/
+TSNE/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

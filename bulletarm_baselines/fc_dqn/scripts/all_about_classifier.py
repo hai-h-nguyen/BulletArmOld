@@ -81,15 +81,15 @@ def build_classifier(num_classes,device, use_equivariant=False):
     else:    
         conv_obs = ConvEncoder({
             "input_size": [128, 128, 1],
-            "filter_size": [3, 3, 3, 3, 3],
-            "filter_counts": [32, 64, 128, 256, 128],
-            "strides": [2, 2, 2, 2, 2],
+            "filter_size": [3, 3, 3, 3, 3, 3],
+            "filter_counts": [32, 64, 128, 256, 512, 128],
+            "strides": [1, 1, 1, 1, 1, 1],
             "use_batch_norm": True,
             "activation_last": True,
             "flat_output": False
         })
         # average pool Bx128x5x5 into Bx128x1x1 and reshape that into Bx128
-        conv_obs_avg_pool = nn.AvgPool2d(kernel_size=4, stride=1, padding=0)
+        conv_obs_avg_pool = nn.AvgPool2d(kernel_size=2, stride=1, padding=0)
     conv_obs_view = View([128])
     conv_obs_encoder = nn.Sequential(conv_obs, conv_obs_avg_pool, conv_obs_view)
 
@@ -101,7 +101,7 @@ def build_classifier(num_classes,device, use_equivariant=False):
         "input_size": [24, 24, 1],
         "filter_size": [3, 3, 3, 3],
         "filter_counts": [32, 64, 128, 128],
-        "strides": [2, 2, 2, 2],
+        "strides": [1, 1, 1, 1],
         "use_batch_norm": True,
         "activation_last": True,
         "flat_output": False
@@ -129,6 +129,8 @@ def build_classifier(num_classes,device, use_equivariant=False):
     classifier.to(device)
     return classifier
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def get_batch(epoch_step, dataset):
     b = np.index_exp[epoch_step * batch_size: (epoch_step + 1) * batch_size]
@@ -252,7 +254,11 @@ def validate_model(classifier, finetune=False):
     print('--------')
     classifier.train()
     return f1_score(eval_dataset["TRUE_ABS_STATE_INDEX"], preds, average='micro'), validate(classifier=classifier, valid_dataset=valid_dataset)[1]
-    
+
+def scale_to_01_range(x):
+    value_range = np.max(x) - np.min(x)
+    return (x-np.min(x))/value_range
+
 def tsne_visualize(classifier, dataset):
     print(dataset.size)
     # exit()
@@ -274,8 +280,8 @@ def tsne_visualize(classifier, dataset):
     create_folder("TSNE")
     df = pd.DataFrame()
     df["y"] = label
-    df['comp-1'] = out[:, 0]
-    df['comp-2'] = out[:, 1]
+    df['comp-1'] = scale_to_01_range(out[:, 0])
+    df['comp-2'] = scale_to_01_range(out[:, 1])
 
     sns_plot = sns.scatterplot(x='comp-1', y='comp-2', hue=df.y.tolist(),
                         palette=sns.color_palette("hls", num_classes), data=df).set(title=f"{goal_string}")
@@ -305,13 +311,13 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='1l2b1r', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='1l2b2b2r', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
-    ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
+    ap.add_argument('-dv', '--device', default='cuda:1', help='Having gpu or not')
     ap.add_argument('-lr', '--learning_rate', default=1e-3, help='Learning rate')
     ap.add_argument('-wd', '--weight_decay', default=1e-5, help='Weight decay')
-    ap.add_argument('-ufm', '--use_equivariant', default=False, help='Using equivariant or not')
+    ap.add_argument('-ufm', '--use_equivariant', default=True, help='Using equivariant or not')
     ap.add_argument('-up', '--use_proser', default=False, help='Using Proser (open-set recognition) or not')
     ap.add_argument('-dn', '--dummy_number', default=5, help='Number of dummy classifiers')
     ap.add_argument('-fep', '--finetune_epoch', default=30, help='Number of finetune epoch')
@@ -353,7 +359,7 @@ if __name__ == "__main__":
     # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_classifier', eval=True)
     # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_equi_classifier', eval=True)
 
-    # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'])
+    # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'], device=device)
     # eval_online, _ = validate_model(classifier=classifier, finetune=True)
     # print(f"Eval Acc: ", eval_online )
     # exit()
@@ -374,6 +380,7 @@ if __name__ == "__main__":
           # Init optimizer
         params = classifier.parameters()
         print("num parameter tensors: {:d}".format(len(list(classifier.parameters()))))
+        print(count_parameters(classifier))
         opt = optim.Adam(params, lr=args['learning_rate'], weight_decay=args['weight_decay'])
         best_val_loss, best_classifier = None, None
 
