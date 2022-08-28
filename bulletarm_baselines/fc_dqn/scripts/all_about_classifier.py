@@ -291,6 +291,7 @@ def tsne_visualize(classifier, dataset):
 def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1,device=None):
     classifier = build_classifier(num_classes=num_classes,device=device, use_equivariant=use_equivariant)
     classifier.train()
+    # classifier.to(device)
     if use_proser:
         classifier.create_dummy(dummy_number=dummy_number)
         classifier.to('cuda')
@@ -311,7 +312,7 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='1l2b2b2r', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='house_building_4', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:1', help='Having gpu or not')

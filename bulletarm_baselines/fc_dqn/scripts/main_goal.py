@@ -422,7 +422,7 @@ def train(wandb_logs = 0):
             for i in range(len(tmp_buffers[idx])):
                 tmp = tmp_buffers[idx][i]
                 if (clone_rewards[idx]>0):
-                    tmp = tmp._replace(reward=tmp.reward + 0.1)
+                    tmp = tmp._replace(reward=tmp.reward + 0.0)
                 replay_buffer.add(tmp)
             tmp_buffers[idx] = []
 

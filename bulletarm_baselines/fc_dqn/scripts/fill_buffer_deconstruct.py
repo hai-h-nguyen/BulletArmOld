@@ -240,8 +240,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
     deconstruct_env = env + '_deconstruct'
-  elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
-                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r']:
+  elif env in ['1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
         deconstruct_env = 'house_building_x' + '_deconstruct'
         env_config['goal_string'] = env
   else:
@@ -345,7 +344,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
-        num_episodes = 50
+        num_episodes = 10
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
     decon_envs.close()
     transitions.reverse()
@@ -405,4 +404,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='1l2b2b2r', num_samples=50000, debug=True)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=50000, debug=False)
