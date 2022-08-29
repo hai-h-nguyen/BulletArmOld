@@ -31,7 +31,7 @@ from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import train_fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
+# from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
 from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
@@ -139,7 +139,11 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
 
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
-        states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=True)
+        states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=False)
+        if (dones[0]):
+            if (render):
+                time.sleep(5)
+            states_, in_hands_, obs_ = envs.reset()
         rewards = rewards.numpy()
         dones = dones.numpy()
         states = copy.copy(states_)
@@ -158,6 +162,7 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
                 total_return += temp_reward[i][-1]
                 if(render):
                     print('return is',temp_reward[i][-1])
+
                 temp_reward[i] = []
         if not no_bar:
             eval_bar.update(evaled - eval_bar.n)
@@ -366,14 +371,15 @@ def train():
                 dones[i] = 1.0
             else:
                 if (abs_goals[i] == 0):
-                    rewards[i] = clone_rewards[i] - 1.0
-                    goals_achieved[i] = (rewards[i] == 0)
+                    rewards[i] = clone_rewards[i]# - 1.0
+                    goals_achieved[i] = (rewards[i] > 0)
                     if (goals_achieved[i].cpu().item() is True):
                         success_goal[abs_goals[i]] += 1
                     continue
 
                 if (dones[i]>0):
                     goals_achieved[i] = not goals_achieved[i]
+                    rewards[i] = torch.tensor(-1).float()
                 else:
                     success_goal[abs_goals[i]] += 1
 
@@ -452,13 +458,14 @@ if __name__ == '__main__':
     print('---------------------    trainning phrase    -------------------------')
     train()
     #------------- eval ------------#
+
     # print('---------------------    evaluate phrase     -------------------------')
     # render = False
     # env_config['render'] = render
     # eval_envs = EnvWrapper(1, env, env_config, planner_config)
     # num_objects = eval_envs.getNumObj()
     # num_classes = 2 * num_objects - 1 
-    # load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
+    # load_model_pre = '/home/huy/Documents/Robotics/BulletArm/exp_agent/weights/block_stacking/'
     # # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     # classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
 
@@ -467,5 +474,5 @@ if __name__ == '__main__':
     # if load_model_pre:
     #     eval_agent.loadModel(load_model_pre)
     # eval_agent.eval()
-    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
+    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=100,classifier=classifier, debug=False,render=render)
     # eval_envs.close()
