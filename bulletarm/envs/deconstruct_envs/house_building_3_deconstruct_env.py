@@ -76,6 +76,9 @@ class HouseBuilding3DeconstructEnv(DeconstructEnv):
     if self._checkOnTop(blocks[0], bricks[0]) and \
        self._checkOnTop(blocks[1], bricks[0]) and \
        self._checkInBetween(bricks[0], blocks[0], blocks[1]) and \
+       not roofs[0].isTouching(bricks[0]) and \
+       not roofs[0].isTouching(blocks[0]) and \
+       not roofs[0].isTouching(blocks[1]) and \
        self._isObjOnGround(roofs[0]):
        return 2
     if self._isObjectHeld(bricks[0]) and \
@@ -85,9 +88,8 @@ class HouseBuilding3DeconstructEnv(DeconstructEnv):
        not roofs[0].isTouching(blocks[0]) and \
        not roofs[0].isTouching(blocks[1]) and \
        not blocks[0].isTouching(blocks[1]) and \
-       not blocks[0].isTouching(blocks[1]) and \
        not self._checkInBetween(roofs[0], blocks[0], blocks[1]) and \
-       self._getDistance(blocks[0], blocks[1]) < 3.0 *self.max_block_size:
+       self._getDistance(blocks[0], blocks[1]) < 2.2 *self.max_block_size:
        return 3
     if self._isObjOnGround(blocks[0]) and \
        self._isObjOnGround(blocks[1]) and \
@@ -99,7 +101,7 @@ class HouseBuilding3DeconstructEnv(DeconstructEnv):
        not blocks[0].isTouching(roofs[0]) and \
        not blocks[1].isTouching(roofs[0]) and \
        not bricks[0].isTouching(roofs[0]) and \
-       self._getDistance(blocks[0], blocks[1]) < 3.0*self.max_block_size and \
+       self._getDistance(blocks[0], blocks[1]) < 2.2*self.max_block_size and \
        not self._checkInBetween(roofs[0], blocks[0], blocks[1]) and \
        not self._checkInBetween(bricks[0], blocks[0], blocks[1]):
        return 4
