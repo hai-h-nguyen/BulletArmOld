@@ -306,7 +306,6 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   decon_envs.close()
 
 def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debug=False):
-    num_processes  = 1
     if env in ['block_stacking',
              'house_building_1',
              'house_building_2',
@@ -399,9 +398,13 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         "ABS_STATE_INDEX": np.int32,
     })
     print("Number collected data sample: ", dataset.size)
+    dataset = dataset.split(5000*num_classes)
+    print("Number collected data sample: ", dataset.size)
+    print("Number collected data sample: ", len(dataset['OBS']))
+
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=50000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=100000, debug=False)

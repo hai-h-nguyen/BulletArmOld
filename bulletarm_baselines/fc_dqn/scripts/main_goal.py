@@ -31,8 +31,9 @@ from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner,train_fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.load_classifier import block_stacking_perfect_classifier
 from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
+from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
+
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
@@ -214,7 +215,9 @@ def train(wandb_logs = 0):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    print(device)
+    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
+    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 

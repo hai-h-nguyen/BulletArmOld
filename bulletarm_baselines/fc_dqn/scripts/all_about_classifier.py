@@ -158,102 +158,102 @@ def validate(classifier, valid_dataset):
     classifier.train()
     return result.mean("TOTAL_LOSS"), result.mean("ACCURACY")
 
-def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lamda1, lamda2):
+# def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lamda1, lamda2):
    
-    finetune_loss = nn.CrossEntropyLoss()
-    finetune_optimizer = optim.SGD(classifier.parameters(), lr=finetune_learning_rate, momentum=0.9, weight_decay=5e-4)
+#     finetune_loss = nn.CrossEntropyLoss()
+#     finetune_optimizer = optim.SGD(classifier.parameters(), lr=finetune_learning_rate, momentum=0.9, weight_decay=5e-4)
 
-    false_count = 0
-    best_finetune_model = None
+#     false_count = 0
+#     best_finetune_model = None
    
-    for fi_ep in range(finetune_epoch):
-        dataset.shuffle()
-        classifier.train()
+#     for fi_ep in range(finetune_epoch):
+#         dataset.shuffle()
+#         classifier.train()
         
-        train_loss = 0
-        correct = 0
-        total = 0
-        percent = []
-        for i in range(epoch_size):
-            obs, hand_obs, abs_task_indices = get_batch(epoch_step=i, dataset=dataset)
-            finetune_optimizer.zero_grad()
-            beta = torch.distributions.Beta(1, 1).sample([]).item()
+#         train_loss = 0
+#         correct = 0
+#         total = 0
+#         percent = []
+#         for i in range(epoch_size):
+#             obs, hand_obs, abs_task_indices = get_batch(epoch_step=i, dataset=dataset)
+#             finetune_optimizer.zero_grad()
+#             beta = torch.distributions.Beta(1, 1).sample([]).item()
 
-            halflength = int(len(obs)/2)
-            prehalf_obs = obs[:halflength]
-            prehalf_hand_obs = hand_obs[:halflength]
-            prehalf_label = abs_task_indices[:halflength]
-            posthalf_obs = obs[halflength:]
-            posthalf_hand_obs = hand_obs[halflength:]
-            poshalf_label = abs_task_indices[halflength:]
-            index = torch.randperm(prehalf_obs.size(0)).to(device)
-            pre2embeddings = classifier.pre2block([prehalf_obs, prehalf_hand_obs])
-            mixed_embeddings = beta*pre2embeddings + (1-beta)*pre2embeddings[index]
+#             halflength = int(len(obs)/2)
+#             prehalf_obs = obs[:halflength]
+#             prehalf_hand_obs = hand_obs[:halflength]
+#             prehalf_label = abs_task_indices[:halflength]
+#             posthalf_obs = obs[halflength:]
+#             posthalf_hand_obs = hand_obs[halflength:]
+#             poshalf_label = abs_task_indices[halflength:]
+#             index = torch.randperm(prehalf_obs.size(0)).to(device)
+#             pre2embeddings = classifier.pre2block([prehalf_obs, prehalf_hand_obs])
+#             mixed_embeddings = beta*pre2embeddings + (1-beta)*pre2embeddings[index]
 
-            dummylogit = classifier.dummypredict([posthalf_obs, posthalf_hand_obs])
-            post_outputs = classifier.forward([posthalf_obs, posthalf_hand_obs])
-            posthalf_output = torch.cat((post_outputs, dummylogit), 1)
-            prehalf_output = torch.cat((classifier.latter2blockclf1(mixed_embeddings), classifier.latter2blockclf2(mixed_embeddings)), 1)
-            maxdummy, _ = torch.max(dummylogit.clone(), dim=1)
-            maxdummy = maxdummy.view(-1, 1)
-            dummyoutputs = torch.cat((post_outputs.clone(), maxdummy), dim=1)
-            for i in range(len(dummyoutputs)):
-                nowlabel = poshalf_label[i]
-                dummyoutputs[i][nowlabel] = -1e-9
-            dummytargets = torch.ones_like(poshalf_label)*num_classes
-            outputs = torch.cat((prehalf_output, posthalf_output), 0)
-            loss1 = finetune_loss(prehalf_output, (torch.ones_like(prehalf_label)*num_classes).long().to(device))
-            loss2 = finetune_loss(posthalf_output, poshalf_label.long())
-            loss3 = finetune_loss(dummyoutputs, dummytargets.long())
-            loss = lamda0 * loss1 +  lamda1 * loss2 + lamda2 * loss3
-            loss.backward()
-            finetune_optimizer.step()
-            train_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += abs_task_indices.size(0)
-            correct += predicted.eq(abs_task_indices).sum().item()
-            percent.append(correct/total)
-        percent = np.array(percent)
-        print(f"Finetune Epoch {fi_ep}: {percent.mean()}")
+#             dummylogit = classifier.dummypredict([posthalf_obs, posthalf_hand_obs])
+#             post_outputs = classifier.forward([posthalf_obs, posthalf_hand_obs])
+#             posthalf_output = torch.cat((post_outputs, dummylogit), 1)
+#             prehalf_output = torch.cat((classifier.latter2blockclf1(mixed_embeddings), classifier.latter2blockclf2(mixed_embeddings)), 1)
+#             maxdummy, _ = torch.max(dummylogit.clone(), dim=1)
+#             maxdummy = maxdummy.view(-1, 1)
+#             dummyoutputs = torch.cat((post_outputs.clone(), maxdummy), dim=1)
+#             for i in range(len(dummyoutputs)):
+#                 nowlabel = poshalf_label[i]
+#                 dummyoutputs[i][nowlabel] = -1e-9
+#             dummytargets = torch.ones_like(poshalf_label)*num_classes
+#             outputs = torch.cat((prehalf_output, posthalf_output), 0)
+#             loss1 = finetune_loss(prehalf_output, (torch.ones_like(prehalf_label)*num_classes).long().to(device))
+#             loss2 = finetune_loss(posthalf_output, poshalf_label.long())
+#             loss3 = finetune_loss(dummyoutputs, dummytargets.long())
+#             loss = lamda0 * loss1 +  lamda1 * loss2 + lamda2 * loss3
+#             loss.backward()
+#             finetune_optimizer.step()
+#             train_loss += loss.item()
+#             _, predicted = outputs.max(1)
+#             total += abs_task_indices.size(0)
+#             correct += predicted.eq(abs_task_indices).sum().item()
+#             percent.append(correct/total)
+#         percent = np.array(percent)
+#         print(f"Finetune Epoch {fi_ep}: {percent.mean()}")
 
-        per, valid = validate_model(classifier=classifier, finetune=True)
-        print(per, valid)
-        if per > false_count and valid > 0.95:
-            false_count = per
-            best_finetune_model = cp.deepcopy(classifier.state_dict())
-            print("[INFO] Saving classifier ...")
-    if best_finetune_model is not None: 
-        classifier.load_state_dict(best_finetune_model)
-    else:
-        print("NOTHING GOOD")
+#         per, valid = validate_model(classifier=classifier, finetune=True)
+#         print(per, valid)
+#         if per > false_count and valid > 0.95:
+#             false_count = per
+#             best_finetune_model = cp.deepcopy(classifier.state_dict())
+#             print("[INFO] Saving classifier ...")
+#     if best_finetune_model is not None: 
+#         classifier.load_state_dict(best_finetune_model)
+#     else:
+#         print("NOTHING GOOD")
         
-    return classifier    
+#     return classifier    
 
-def validate_model(classifier, finetune=False):
-    classifier.eval()
-    correct = 0
-    unseen = 0
-    preds = []
-    # throws away a bit of data if validation set size % batch size != 0
-    for i in range(eval_dataset.size):
-        obs = torch.from_numpy(eval_dataset["OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
-        hand_obs = torch.from_numpy(eval_dataset["HAND_OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
-        # true_abs_state_index = torch.tensor(eval_dataset["TRUE_ABS_STATE_INDEX"][i]).to(device)
-        if finetune:
-            pred = classifier.proser_prediction([obs, hand_obs])
-            preds.append(pred.cpu().detach().numpy())
-        else:
-            pred = classifier.get_prediction([obs, hand_obs], logits=False, hard=True)
-            preds.append(pred.cpu().detach().numpy()[0])
-        # if pred == true_abs_state_index:
-            # correct += 1
-        # if pred == num_classes and pred == true_abs_state_index:
-            # unseen += 1
-    # print(preds)
-    print(classification_report(eval_dataset["TRUE_ABS_STATE_INDEX"], preds))
-    print('--------')
-    classifier.train()
-    return f1_score(eval_dataset["TRUE_ABS_STATE_INDEX"], preds, average='micro'), validate(classifier=classifier, valid_dataset=valid_dataset)[1]
+# def validate_model(classifier, finetune=False):
+#     classifier.eval()
+#     correct = 0
+#     unseen = 0
+#     preds = []
+#     # throws away a bit of data if validation set size % batch size != 0
+#     for i in range(eval_dataset.size):
+#         obs = torch.from_numpy(eval_dataset["OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
+#         hand_obs = torch.from_numpy(eval_dataset["HAND_OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
+#         # true_abs_state_index = torch.tensor(eval_dataset["TRUE_ABS_STATE_INDEX"][i]).to(device)
+#         if finetune:
+#             pred = classifier.proser_prediction([obs, hand_obs])
+#             preds.append(pred.cpu().detach().numpy())
+#         else:
+#             pred = classifier.get_prediction([obs, hand_obs], logits=False, hard=True)
+#             preds.append(pred.cpu().detach().numpy()[0])
+#         # if pred == true_abs_state_index:
+#             # correct += 1
+#         # if pred == num_classes and pred == true_abs_state_index:
+#             # unseen += 1
+#     # print(preds)
+#     print(classification_report(eval_dataset["TRUE_ABS_STATE_INDEX"], preds))
+#     print('--------')
+#     classifier.train()
+#     return f1_score(eval_dataset["TRUE_ABS_STATE_INDEX"], preds, average='micro'), validate(classifier=classifier, valid_dataset=valid_dataset)[1]
 
 def scale_to_01_range(x):
     value_range = np.max(x) - np.min(x)
@@ -485,3 +485,5 @@ if __name__ == "__main__":
             torch.save(classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt")
         else:
             torch.save(classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt")
+
+
