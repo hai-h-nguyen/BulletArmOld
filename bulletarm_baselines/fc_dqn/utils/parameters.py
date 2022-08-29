@@ -89,12 +89,12 @@ logging_group.add_argument('--get_bad_pred', type=int, default=0)
 logging_group.add_argument('--classifier_name', type=str, default=None)
 buffer_group.add_argument('--dummy_number', type=int, default=1)
 buffer_group.add_argument('--use_equivariant', type=int, default=0)
-buffer_group.add_argument('--use_proser', type=int, default=0)
+# buffer_group.add_argument('--use_proser', type=int, default=0)
 
 args = parser.parse_args()
 dummy_number = args.dummy_number
 use_equivariant = args.use_equivariant
-use_proser = args.use_proser
+# use_proser = args.use_proser
 # env
 random_orientation = args.random_orientation
 env = args.env

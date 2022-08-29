@@ -29,10 +29,10 @@ from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
 
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
-from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner,train_fillDeconstructUsingRunner
+from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import train_fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.load_classifier import block_stacking_perfect_classifier
 from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
+from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
@@ -190,7 +190,7 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
     else:
         print(f'[INFO] {key}: {value}')
 
-def train(wandb_logs = 0):
+def train():
     print(f'trainning for {max_train_step} step on {env}')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
@@ -209,7 +209,8 @@ def train(wandb_logs = 0):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
+    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
@@ -406,7 +407,7 @@ def train(wandb_logs = 0):
             for i in range(len(tmp_buffers[idx])):
                 tmp = tmp_buffers[idx][i]
                 if (clone_rewards[idx]>0):
-                    tmp = tmp._replace(reward=tmp.reward + 0.1)
+                    tmp = tmp._replace(reward=tmp.reward + 0.0)
                 replay_buffer.add(tmp)
             tmp_buffers[idx] = []
 
@@ -449,16 +450,17 @@ def train(wandb_logs = 0):
 
 if __name__ == '__main__':
     print('---------------------    trainning phrase    -------------------------')
-    train(wandb_logs)
+    train()
     #------------- eval ------------#
-    print('---------------------    evaluate phrase     -------------------------')
+    # print('---------------------    evaluate phrase     -------------------------')
     # render = False
     # env_config['render'] = render
     # eval_envs = EnvWrapper(1, env, env_config, planner_config)
     # num_objects = eval_envs.getNumObj()
     # num_classes = 2 * num_objects - 1 
     # load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
-    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    # # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    # classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
 
     # eval_agent = createAgent(num_classes,test=True)
     # eval_agent.train()

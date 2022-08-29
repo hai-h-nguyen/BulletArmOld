@@ -9,10 +9,17 @@ from tqdm import tqdm
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset
 import matplotlib.pyplot as plt
+import os
 
 sys.path.append('./')
 sys.path.append('..')
 from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
+
+def create_folder(path):
+    try:
+        os.mkdir(path)
+    except:
+        print(f'[INFO] folder {path} existed, can not create new')
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
@@ -146,64 +153,6 @@ def fillDeconstruct(agent, replay_buffer):
     pbar.close()
     envs.close()
 
-def fillDeconstructUsingRunner(agent, replay_buffer):
-  if env in ['block_stacking',
-             'house_building_1',
-             'house_building_2',
-             'house_building_3',
-             'house_building_4',
-             'improvise_house_building_2',
-             'improvise_house_building_3',
-             'improvise_house_building_discrete',
-             'improvise_house_building_random',
-             'ramp_block_stacking',
-             'ramp_house_building_1',
-             'ramp_house_building_2',
-             'ramp_house_building_3',
-             'ramp_house_building_4',
-             'ramp_improvise_house_building_2',
-             'ramp_improvise_house_building_3']:
-    deconstruct_env = env + '_deconstruct'
-  else:
-    raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
-  decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
-
-  transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
-  for i, transition in enumerate(transitions):
-    (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs) = transition
-    # print(state,next_state, reward, done)
-    # fig, axs = plt.subplots(2,2)
-    # axs[0][0].set_title('in_hand')
-    # axs[0][0].imshow(in_hand)
-    # axs[0][1].set_title('obs')
-    # axs[0][1].imshow(obs)
-    # axs[1][0].set_title('next_in_hand')
-    # axs[1][0].imshow(next_in_hand)
-    # axs[1][1].set_title('next_obs')
-    # axs[1][1].imshow(next_obs)
-    # plt.show()
-    # TODO: classifier
-    abs_state = torch.tensor([1]).to(device) #self.classify_(obs, in_hand)
-    abs_goal = update_abs_goals(abs_state)
-    abs_state_next = torch.tensor([0]).to(device) #self.classify_(next_obs, next_in_hand)
-    abs_goal_next =  update_abs_goals(abs_state_next)
-    actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
-    replay_buffer.add(ExpertTransition(
-      torch.tensor(state).float(),
-      (torch.tensor(obs).float(), torch.tensor(in_hand).float()),
-      actions_star_idx[0],
-      torch.tensor(reward).float(),
-      torch.tensor(next_state).float(),
-      (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
-      torch.tensor(float(done)),#torch.tensor(float(1)),
-      torch.tensor(float(0)),
-      torch.tensor(1),
-      abs_state[0], abs_goal[0],
-      abs_state_next[0],abs_goal_next[0]
-      )
-    )
-  decon_envs.close()
-
 def get_cls(classifier, obs, inhand):
     obs = torch.tensor(obs).type(torch.cuda.FloatTensor).to(device)
     inhand = torch.tensor(inhand).type(torch.cuda.FloatTensor).to(device)
@@ -233,6 +182,9 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
     deconstruct_env = env + '_deconstruct'
+  elif env in ['1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
+        deconstruct_env = 'house_building_x' + '_deconstruct'
+        env_config['goal_string'] = env
   else:
     raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
 #   env_config['render'] = True
@@ -249,7 +201,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state = pred_abs_state
     else:
         abs_state = true_abs_state
-    abs_state = remove_outlier(abs_state,num_class)
+    abs_state = remove_outlier(abs_state, num_class)
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
     pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
 
@@ -259,23 +211,9 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state_next = true_abs_state_next 
     abs_state_next = remove_outlier(abs_state_next,num_class)
 
-
-
     abs_goal = update_abs_goals(abs_state)
     abs_goal_next =  update_abs_goals(abs_state_next)
 
-    # TODO: classifier
-    # fig, axs = plt.subplots(2,2)
-    # cnt += 1
-    # axs[0][0].axis('off')
-    # axs[0][0].set_title(f'current abs {abs_state}')
-    # axs[0][0].imshow(in_hand)
-    # axs[0][1].imshow(obs)
-    # axs[1][0].axis('off')
-    # axs[1][0].set_title(f'next abs {abs_state_next}')
-    # axs[1][0].imshow(next_in_hand)
-    # axs[1][1].imshow(next_obs)
-    # plt.savefig(f'abc/{cnt}_.png')
 
     actions_star_idx, actions_star = agent.getActionFromPlan(torch.tensor(np.expand_dims(action, 0)))
     replay_buffer.add(ExpertTransition(
@@ -284,7 +222,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
       actions_star_idx[0],
       #------------------#
     #   torch.tensor(reward).float(),
-      torch.tensor(0.1).float(),
+      torch.tensor(0.0).float(),
       #------------------#
       torch.tensor(next_state).float(),
       (torch.tensor(next_obs).float(), torch.tensor(next_in_hand).float()),
@@ -319,8 +257,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
              'ramp_improvise_house_building_3']:
         deconstruct_env = env + '_deconstruct'
         decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
-    elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
-                    '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r']:
+    elif env in ['1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
         deconstruct_env = 'house_building_x' + '_deconstruct'
         env_config['goal_string'] = env
     else:
@@ -329,6 +266,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     num_objects = decon_envs.getNumObj()
     num_classes = 2*num_objects-1
+    print(num_classes)
 
     num_episodes = num_samples // num_classes
     dataset = ListDataset()
@@ -338,7 +276,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
-        num_episodes = 20
+        num_episodes = 10
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
     decon_envs.close()
     transitions.reverse()
@@ -373,6 +311,8 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
                 dataset.add("DONES", 1)
                 dataset.add("ABS_STATE_INDEX", 0)
     if debug:
+        create_folder('check_collect_image')
+        print(len(states))
         for i in range(len(states)):
             plt.figure(figsize=(15,4))
             plt.subplot(1,2,1)
@@ -391,9 +331,13 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         "ABS_STATE_INDEX": np.int32,
     })
     print("Number collected data sample: ", dataset.size)
+    dataset = dataset.split(5000*num_classes)
+    print("Number collected data sample: ", dataset.size)
+    print("Number collected data sample: ", len(dataset['OBS']))
+
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='block_stacking', num_samples=50000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=100000, debug=False)
