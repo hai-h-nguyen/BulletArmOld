@@ -139,11 +139,13 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
 
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(states, in_hands, obs,abs_states,abs_goals, 0)
         actions_star = torch.cat((actions_star, states.unsqueeze(1)), dim=1)
-        states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=False)
-        if (dones[0]):
-            if (render):
-                time.sleep(5)
-            states_, in_hands_, obs_ = envs.reset()
+        states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=True)
+
+        # states_, in_hands_, obs_, rewards, dones = envs.step(actions_star, auto_reset=False)
+        # if (dones[0]):
+        #     time.sleep(5)
+        #     states_, in_hands_, obs_ = envs.reset()
+
         rewards = rewards.numpy()
         dones = dones.numpy()
         states = copy.copy(states_)
@@ -214,11 +216,11 @@ def train():
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
+    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    classifier = classifier.load_classifier()
     # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
-
     # load classifier
     if (use_classifier):
         print('---- use abstract state from classifier  ----')

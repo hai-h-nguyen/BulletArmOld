@@ -275,5 +275,5 @@ class State_abstractor():
         print(f1_score(self.eval_dataset['ABS_STATE_INDEX']), preds)
 
 if __name__ == '__main__':
-    model = State_abstractor(goal_str='house_building_3', use_equivariant=True, device=torch.device('cuda'))
-    model.train_state_abstractor(num_training_steps=1000)
+    model = State_abstractor(goal_str='house_building_4', use_equivariant=True, device=torch.device('cuda'))
+    model.train_state_abstractor(num_training_steps=10000)

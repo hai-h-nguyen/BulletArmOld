@@ -340,4 +340,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_3', num_samples=100000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=100000, debug=False)
