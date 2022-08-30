@@ -32,7 +32,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         print("=================\t Loading finetune dataset \t=================")
         dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.h5")
         num_samples = dataset.size
-        print(f"Total number samples: {num_samples}")
+        print(f"Total number samples of {goal_str}: {num_samples}")
         abs_index = dataset["TRUE_ABS_STATE_INDEX"]
         print(f"Class: {np.unique(abs_index, return_counts=True)[0]}")
         print(f"Number samples/each class: {np.unique(abs_index, return_counts=True)[1]}")
@@ -42,7 +42,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.h5")
         dataset.shuffle()
         num_samples = dataset.size
-        print(f"Total number samples: {num_samples}")
+        print(f"Total number samples of {goal_str}: {num_samples}")
         abs_index = dataset["ABS_STATE_INDEX"]
         print(f"Class: {np.unique(abs_index, return_counts=True)[0]}")
         print(f"Number samples/each class: {np.unique(abs_index, return_counts=True)[1]}")
@@ -142,7 +142,7 @@ class State_abstractor():
         self.batch_size = batch_size
         self.dataset, self.valid_dataset, self.test_dataset = load_dataset(goal_str=self.goal_str)
         epoch_size = len(self.dataset['OBS']) // self.batch_size
-        print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
+        print(f'Number of trainable parameters: {sum(p.numel() for p in self.classifier.parameters() if p.requires_grad)}')
 
         opt = optim.Adam(self.classifier.parameters(), lr=learning_rate, weight_decay=weight_decay)
         best_val_loss, best_classifier = None, None
@@ -272,8 +272,11 @@ class State_abstractor():
             pred = self.classifier.get_prediction([obs, hand_obs], logits=False, hard=True)
             preds.append(pred.detach().cpu())
 
-        print(f1_score(self.eval_dataset['ABS_STATE_INDEX']), preds)
+        print(f1_score(self.eval_dataset['ABS_STATE_INDEX'], preds, average='weighted'))
 
 if __name__ == '__main__':
-    model = State_abstractor(goal_str='house_building_4', use_equivariant=False, device=torch.device('cuda'))
-    model.train_state_abstractor(num_training_steps=1100)
+    model = State_abstractor(goal_str='1l2b2b2r', use_equivariant=True, device=torch.device('cuda:1'))
+    model.load_classifier()
+    print('ok')
+    # model.train_state_abstractor(visualize=True)
+    # load_dataset(goal_str='house_building_3')

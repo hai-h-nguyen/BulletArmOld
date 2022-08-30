@@ -96,7 +96,7 @@ class HouseBuilding3Env(BaseEnv):
        not roofs[0].isTouching(blocks[1]) and \
        not blocks[0].isTouching(blocks[1]) and \
        not self._checkInBetween(roofs[0], blocks[0], blocks[1]) and \
-       self._getDistance(blocks[0], blocks[1]) < 2.2*self.max_block_size:
+       self._getDistance(blocks[0], blocks[1]) < 2.4*self.max_block_size:
        return 3
     if self._isObjOnGround(blocks[0]) and \
        self._isObjOnGround(blocks[1]) and \
@@ -108,7 +108,7 @@ class HouseBuilding3Env(BaseEnv):
        not blocks[0].isTouching(roofs[0]) and \
        not blocks[1].isTouching(roofs[0]) and \
        not bricks[0].isTouching(roofs[0]) and \
-       self._getDistance(blocks[0], blocks[1]) < 2.2*self.max_block_size and \
+       self._getDistance(blocks[0], blocks[1]) < 2.4*self.max_block_size and \
        not self._checkInBetween(roofs[0], blocks[0], blocks[1]) and \
        not self._checkInBetween(bricks[0], blocks[0], blocks[1]):
        return 4

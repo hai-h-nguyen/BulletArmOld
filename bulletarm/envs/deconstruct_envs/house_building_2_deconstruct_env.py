@@ -64,7 +64,7 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
     if self._isObjectHeld(roofs[0]) and \
        self._isObjOnGround(blocks[0]) and \
        self._isObjOnGround(blocks[1]) and \
-       dist_blocks < 3.0 * self.max_block_size:
+       dist_blocks < 2.4 * self.max_block_size:
       return 1
     if self._isObjOnGround(blocks[0]) and \
        self._isObjOnGround(blocks[1]) and \
@@ -72,7 +72,7 @@ class HouseBuilding2DeconstructEnv(DeconstructEnv):
        not roofs[0].isTouching(blocks[0]) and \
        not roofs[0].isTouching(blocks[1]) and \
        not self._checkInBetween(roofs[0], blocks[0], blocks[1]) and \
-       dist_blocks < 3.0 * self.max_block_size:
+       dist_blocks < 2.4 * self.max_block_size:
       return 2
     if self._isObjOnGround(blocks[0]) and \
        self._isObjOnGround(blocks[1]) and \
