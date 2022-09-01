@@ -66,11 +66,10 @@ class ArrayDataset:
             self.arrays[key] = array
 
     def split(self, other_size):
-
+        
         other_dataset = {}
 
         for key, array in self.arrays.items():
-
             other_dataset[key] = array[:other_size]
             self.arrays[key] = array[other_size:]
 

@@ -1,6 +1,6 @@
 from bulletarm_baselines.fc_dqn.utils.SoftmaxClassifier import SoftmaxClassifier
 from bulletarm_baselines.fc_dqn.utils.View import View
-from bulletarm_baselines.fc_dqn.utils.ConvEncoder import ConvEncoder, ConvEncoder1
+from bulletarm_baselines.fc_dqn.utils.ConvEncoder import ConvEncoder
 from bulletarm_baselines.fc_dqn.utils.SplitConcat import SplitConcat
 from bulletarm_baselines.fc_dqn.utils.FCEncoder import FCEncoder
 from bulletarm_baselines.fc_dqn.utils.EquiObs import EquiObs
@@ -46,11 +46,12 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         abs_index = dataset["ABS_STATE_INDEX"]
         print(f"Class: {np.unique(abs_index, return_counts=True)[0]}")
         print(f"Number samples/each class: {np.unique(abs_index, return_counts=True)[1]}")
-
         valid_samples = int(num_samples * validation_fraction)
         valid_dataset = dataset.split(valid_samples)
         test_samples = int(num_samples * test_fraction)
         test_dataset = dataset.split(test_samples)
+
+
         dataset.size = dataset.size - valid_dataset.size - test_dataset.size
         return dataset, valid_dataset, test_dataset
 
@@ -152,7 +153,7 @@ class State_abstractor():
         self.classifier.to(self.device)
         return self.classifier
 
-    def train_state_abstractor(self, num_training_steps=10000, learning_rate=1e-3, weight_decay=1e-5, batch_size=32, visualize=True):
+    def train_state_abstractor(self, num_training_steps=10000, learning_rate=1e-3, weight_decay=1e-5, batch_size=32, visualize=False):
         self.classifier.train()
         # Load dataset
         self.batch_size = batch_size
@@ -162,13 +163,14 @@ class State_abstractor():
         # exit()
         opt = optim.Adam(self.classifier.parameters(), lr=learning_rate, weight_decay=weight_decay)
         best_val_loss, best_classifier = None, None
+        best_step = None
 
         result = Result()
         result.register("TOTAL_LOSS")
         result.register("ACCURACY")
         result.register("TOTAL_VALID_LOSS")
         result.register("VALID_ACCURACY")
-
+        
         for training_step in range(num_training_steps):
             epoch_step = training_step % epoch_size
             if epoch_step == 0:
@@ -178,7 +180,9 @@ class State_abstractor():
                 valid_loss, valid_acc = self.validate(dataset=self.valid_dataset)
                 if best_val_loss is None or best_val_loss > valid_loss:
                     best_val_loss = valid_loss
+                    best_step = training_step
                     best_classifier = cp.deepcopy(self.classifier.state_dict())
+                    print(f'step {training_step}: best = {best_val_loss} at {best_step}')
                 result.add("TOTAL_VALID_LOSS", valid_loss)
                 result.add("VALID_ACCURACY", valid_acc)
                 print("validation complete")
@@ -296,7 +300,7 @@ class State_abstractor():
 
 
 if __name__ == '__main__':
-    a = 'house_building_1'
+    a = 'house_building_4'
     # model1 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=False, device=torch.device('cuda'))
     # model1.evaluate_miss_dataset()
     # model.load_classifier()
@@ -305,9 +309,9 @@ if __name__ == '__main__':
     # model2.train_state_abstractor()
     # model2.evaluate_miss_dataset()
     print('='*50)
-    model3 = State_abstractor(goal_str=a, use_equivariant=True, equal_param=False, device=torch.device('cuda'))
+    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=False, device=torch.device('cuda'))
     # model3.evaluate_miss_dataset()
-    model3.train_state_abstractor(num_training_steps=10000)
+    model3.train_state_abstractor(num_training_steps=5000)
 
 
 
