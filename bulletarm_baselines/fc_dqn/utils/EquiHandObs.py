@@ -35,24 +35,15 @@ class EquiHandObs(torch.nn.Module):
     def forward(self, input):
         x = nn.GeometricTensor(input, self.input_type)
 
-        # print(x.shape)
         x = self.block1(x)
-        # print(x.shape)
         x = self.block2(x)
-        # print(x.shape)
 
         x = self.block3(x)
         x = self.block4(x)
-        # print(x.shape)
 
-        # x = self.last_pool(x)
         x = self.gpool(x)
-        # print(x.shape)
-
         x = x.tensor
-        # exit()
-        # print(x.shape)
-        # print('OK')
+
         return x
 
     def make_block(self, in_type, out_type, filter_size):

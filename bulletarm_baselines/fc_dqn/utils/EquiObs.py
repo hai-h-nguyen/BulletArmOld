@@ -37,35 +37,23 @@ class EquiObs(torch.nn.Module):
         out_type = nn.FieldType(self.r2_act, self.filter_counts[5]*[self.r2_act.regular_repr])
         self.block6 = self.make_block(in_type=in_type, out_type=out_type, filter_size=self.filter_sizes[5])
 
-        # out_type = nn.FieldType(self.r2_act, self.filter_counts[5]*[self.r2_act.regular_repr])
-        # self.last_pool = nn.PointwiseMaxPool(out_type, 2)
         self.gpool = nn.GroupPooling(out_type)
 
     def forward(self, input):
         x = nn.GeometricTensor(input, self.input_type)
 
-        # print(x.shape)
         x = self.block1(x)
-        # print(x.shape)
         x = self.block2(x)
-        # print(x.shape)
 
         x = self.block3(x)
         x = self.block4(x)
-        # print(x.shape)
 
         x = self.block5(x)
         x = self.block6(x)
-        # print(x.shape)
 
-        # x = self.last_pool(x)
         x = self.gpool(x)
-        # print(x.shape)
 
         x = x.tensor
-        # exit()
-        # print(x.shape)
-        # print('OK')
         return x
 
     def make_block(self, in_type, out_type, filter_size):

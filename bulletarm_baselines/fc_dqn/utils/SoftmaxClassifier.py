@@ -5,14 +5,12 @@ from torch import nn
 
 class SoftmaxClassifier(nn.Module):
 
-    def __init__(self, encoder, conv_encoder, intermediate_fc, num_classes):
+    def __init__(self, encoder, num_classes):
 
         super(SoftmaxClassifier, self).__init__()
 
         self.encoder = encoder
         self.num_classes = num_classes
-        self.conv_encoder = conv_encoder
-        self.intermediate_fc = intermediate_fc
 
         self.create_fc_()
         self.loss = nn.CrossEntropyLoss()
@@ -21,34 +19,6 @@ class SoftmaxClassifier(nn.Module):
     def forward(self, x):
         return self.fc(self.encoder(x))
     
-    def create_dummy(self, dummy_number=1):
-        self.clf2 = nn.Linear(self.encoder.output_size, dummy_number, bias=True)
-        nn.init.kaiming_normal_(self.clf2.weight, mode="fan_in", nonlinearity="relu")
-        # nn.init.kaiming_normal_(self.clf2.weight, mode="fan_in", nonlinearity="leaky_relu")
-        nn.init.constant_(self.clf2.bias, 0)
-    
-    def pre2block(self, x):
-        return self.conv_encoder(x)
-
-    def dummypredict(self, x):
-        return self.clf2(self.encoder(x))
-
-    def latter2blockclf2(self, x):
-        out = self.intermediate_fc(x)
-        return self.clf2(out)
-
-    def latter2blockclf1(self, x):
-        out = self.intermediate_fc(x)
-        return self.fc(out)
-
-    def proser_prediction(self, x, temp=200):
-        logits = self.forward(x)
-        dummy_logits = self.dummypredict(x)
-        maxdummylogit, _ = torch.max(dummy_logits, 1)
-        maxdummylogit = maxdummylogit.view(-1, 1)
-        totallogits = torch.cat((logits, maxdummylogit), dim=1)
-        embedding = nn.functional.softmax(totallogits/temp, dim=1)
-        return torch.argmax(embedding)
 
     def get_prediction(self, x, logits=False, hard=False):
 
@@ -76,7 +46,5 @@ class SoftmaxClassifier(nn.Module):
     def create_fc_(self):
 
         self.fc = nn.Linear(self.encoder.output_size, self.num_classes, bias=True)
-
         nn.init.kaiming_normal_(self.fc.weight, mode="fan_in", nonlinearity="relu")
-        # nn.init.kaiming_normal_(self.fc.weight, mode="fan_in", nonlinearity="leaky_relu")
         nn.init.constant_(self.fc.bias, 0)
