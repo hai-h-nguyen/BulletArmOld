@@ -423,7 +423,7 @@ class MultiRunner(object):
           local_obs[idx].append(buffer_obs_[idx])
           local_state[idx].append(copy.deepcopy(states_[idx]))
           local_abs_state[idx].append(copy.deepcopy(abs_states_next[idx]))
-          if (num_objects-2)*2 <= steps[idx] <= num_objects*2 -2 and states_valid(local_state[idx]) and rewards_valid(local_reward[idx]):
+          if (steps[idx] == num_objects*2 - 2) and states_valid(local_state[idx]) and rewards_valid(local_reward[idx]):
             s += 1
             for j in range(len(local_reward[idx])):
               obs = local_obs[idx][j+1]
