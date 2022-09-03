@@ -202,7 +202,7 @@ def train():
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='hmhuy')
+        group=wandb_group, name=wandb_seed, entity='longdinh')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -211,12 +211,18 @@ def train():
     if seed is not None:
         set_seed(seed)
     # setup env
-    envs = EnvWrapper(num_processes, env, env_config, planner_config)
-    eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
+    if env in ['1l1l1r', '1l1l2r', '1l2b2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
+        env_config['goal_string'] = env
+        envs = EnvWrapper(num_processes, 'house_building_x', env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, 'house_building_x', env_config, planner_config)
+    else:    
+        envs = EnvWrapper(num_processes, env, env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
+
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, equal_param=False, device=device)
     classifier = classifier.load_classifier()
     # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)

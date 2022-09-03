@@ -91,7 +91,7 @@ class HouseBuildingXEnv(BaseEnv):
                 self._checkOnTop(blocks[6-i-j-k], roofs[0]) and \
                 self._checkInBetween(bricks[l], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[i], blocks[j]) and \
-                self._checkInBetween(roofs[0], blocks[k], blocks[j]) and \
+                self._checkInBetween(roofs[0], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[l], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(roofs[0], blocks[k], blocks[6-i-j-k]):
@@ -555,7 +555,7 @@ class HouseBuildingXEnv(BaseEnv):
                 self._checkOnTop(blocks[6-i-j-k], roofs[0]) and \
                 self._checkInBetween(bricks[l], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[i], blocks[j]) and \
-                self._checkInBetween(roofs[0], blocks[k], blocks[j]) and \
+                self._checkInBetween(roofs[0], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[l], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(roofs[0], blocks[k], blocks[6-i-j-k]):

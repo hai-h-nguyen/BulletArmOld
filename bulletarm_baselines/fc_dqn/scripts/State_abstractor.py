@@ -29,7 +29,7 @@ def create_folder(path):
 def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=False):
     dataset = ArrayDataset(None)
     if eval:
-        print("=================\t Loading finetune dataset \t=================")
+        print(f"=================\t Loading eval dataset {goal_str} \t=================")
         dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{goal_str}.h5")
         num_samples = dataset.size
         print(f"Total number samples: {num_samples}")
@@ -38,7 +38,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         print(f"Number samples/each class: {np.unique(abs_index, return_counts=True)[1]}")
         return dataset
     else:
-        print("=================\t Loading dataset \t=================")
+        print(f"=================\t Loading training dataset {goal_str}\t=================")
         dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{goal_str}.h5")
         dataset.shuffle()
         num_samples = dataset.size
@@ -92,9 +92,9 @@ class State_abstractor():
             self.equal_param = False
 
         if self.use_equivariant:
-            print('=============================================')
+            print('='*50)
             print('----------\t Equivaraint Model \t -----------')
-            print('=============================================')
+            print('='*50)
             conv_obs = EquiObs(num_subgroups=4, filter_sizes=[3, 3, 3, 3, 3, 3], filter_counts=[32, 64, 128, 256, 512, 128])
 
             conv_hand_obs = EquiHandObs(num_subgroups=8, filter_sizes=[3, 3, 3, 3], filter_counts=[32, 64, 128, 128])
@@ -131,7 +131,7 @@ class State_abstractor():
         if self.equal_param:
             intermediate_fc = FCEncoder({
             "input_size": 256,
-            "neurons": [512, 1024, 512, 256, 128],
+            "neurons": [512, 1024, 1024, 2048, 2048, 1024, 1024, 512, 256, 128],
             "use_batch_norm": True,
             "use_layer_norm": False,
             "activation_last": True
@@ -153,7 +153,7 @@ class State_abstractor():
         self.classifier.to(self.device)
         return self.classifier
 
-    def train_state_abstractor(self, num_training_steps=10000, learning_rate=1e-3, weight_decay=1e-5, batch_size=32, visualize=False):
+    def train_state_abstractor(self, num_training_steps=10000, learning_rate=1e-3, weight_decay=1e-5, batch_size=32, visualize=True):
         self.classifier.train()
         # Load dataset
         self.batch_size = batch_size
@@ -274,7 +274,7 @@ class State_abstractor():
         self.classifier.train()
         self.classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt"))
         self.classifier.eval()
-        print('------\t Successfully load classifier \t-----------')
+        print(f'------\t Successfully load classifier {self.name}\t-----------')
         return self.classifier
 
     def evaluate_miss_dataset(self):
@@ -300,18 +300,18 @@ class State_abstractor():
 
 
 if __name__ == '__main__':
-    a = 'house_building_4'
+    a = '1l2b2r'
     # model1 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=False, device=torch.device('cuda'))
     # model1.evaluate_miss_dataset()
     # model.load_classifier()
-    print('='*50)
+    # print('='*50)
     # model2 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=True, device=torch.device('cuda'))
     # model2.train_state_abstractor()
     # model2.evaluate_miss_dataset()
-    print('='*50)
-    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=False, device=torch.device('cuda'))
+    # print('='*50)
+    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=True, device=torch.device('cuda'))
     # model3.evaluate_miss_dataset()
-    model3.train_state_abstractor(num_training_steps=5000)
+    model3.train_state_abstractor(num_training_steps=15000)
 
 
 

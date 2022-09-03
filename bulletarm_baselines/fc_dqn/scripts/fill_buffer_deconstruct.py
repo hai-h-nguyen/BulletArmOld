@@ -192,7 +192,8 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   num_class = 2 * decon_envs.getNumObj() - 1
   print(f'num_class in deconstruct env: {num_class}')
   cnt = 0
-  transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
+  transitions = decon_envs.gatherDeconstructTransitions(planner_episode) 
+
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
     true_abs_state = torch.tensor(abs_state).to(device)
@@ -276,15 +277,18 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
-        num_episodes = 10
+        num_episodes = 20
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
     decon_envs.close()
     transitions.reverse()
 
     true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
-    print(true_index)
+    # print(len(true_index))
+    # print(true_index)
     perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
-    print(perfect_index)
+    # print(len(perfect_index))
+    # print(perfect_index)
+    # exit()
     for i in perfect_index:
         for j in range(num_classes-1, 0, -1):
         
@@ -340,4 +344,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=100000, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=80000, debug=True)

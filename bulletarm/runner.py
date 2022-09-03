@@ -391,7 +391,7 @@ class MultiRunner(object):
 
     transitions = []
     cnt = 0
-    while total < planner_episode:
+    while s < planner_episode:
       cnt += 1
       plan_actions = self.getNextAction()
       actions_star = np.concatenate((plan_actions, np.expand_dims(states, 1)), axis=1)
@@ -423,7 +423,7 @@ class MultiRunner(object):
           local_obs[idx].append(buffer_obs_[idx])
           local_state[idx].append(copy.deepcopy(states_[idx]))
           local_abs_state[idx].append(copy.deepcopy(abs_states_next[idx]))
-          if (num_objects-2)*2 <= steps[idx] <= num_objects*2 and states_valid(local_state[idx]) and rewards_valid(local_reward[idx]):
+          if (steps[idx] == num_objects*2-2) and states_valid(local_state[idx]) and rewards_valid(local_reward[idx]):
             s += 1
             for j in range(len(local_reward[idx])):
               obs = local_obs[idx][j+1]
@@ -447,8 +447,10 @@ class MultiRunner(object):
           local_abs_state[idx] = []
 
       pbar.set_description(
-        '{}/{}, SR: {:.3f}, step time: {:.2f}; avg step time: {:.2f}'
-          .format(total, planner_episode, float(s)/total if total !=0 else 0, t, np.mean(step_times))
+        # '{}/{}, SR: {:.3f}, step time: {:.2f}; avg step time: {:.2f}'
+        #   .format(total, planner_episode, float(s)/total if total !=0 else 0, t, np.mean(step_times))
+       '{}/{}, trials: {}, step time: {:.2f}; avg step time: {:.2f}'
+          .format(s, planner_episode, total, t, np.mean(step_times))
       )
       pbar.update(done_idxes.shape[0])
 

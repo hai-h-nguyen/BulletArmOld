@@ -82,7 +82,7 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
                 self._checkOnTop(blocks[6-i-j-k], roofs[0]) and \
                 self._checkInBetween(bricks[l], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[i], blocks[j]) and \
-                self._checkInBetween(roofs[0], blocks[k], blocks[j]) and \
+                self._checkInBetween(roofs[0], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[l], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(roofs[0], blocks[k], blocks[6-i-j-k]):
@@ -196,8 +196,10 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
       self.generateStructureShape((new_pos_x_2, new_pos_y_2, 1.5 * self.max_block_size), rot, constants.CUBE)
 
       self.generateStructureShape((pos[0], pos[1], 2.5*self.max_block_size), rot, constants.BRICK)
+
       self.generateStructureShape((new_pos_x_1, new_pos_y_1, 3.5 * self.max_block_size), rot, constants.CUBE)
       self.generateStructureShape((new_pos_x_2, new_pos_y_2, 3.5 * self.max_block_size), rot, constants.CUBE)
+      
       self.generateStructureShape((pos[0], pos[1], 4.5*self.max_block_size), rot, constants.ROOF)
 
     elif self.goal == '1l2b2b2r':
@@ -661,7 +663,7 @@ class HouseBuildingXDeconstructEnv(DeconstructEnv):
                 self._checkOnTop(blocks[6-i-j-k], roofs[0]) and \
                 self._checkInBetween(bricks[l], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[i], blocks[j]) and \
-                self._checkInBetween(roofs[0], blocks[k], blocks[j]) and \
+                self._checkInBetween(roofs[0], blocks[i], blocks[j]) and \
                 self._checkInBetween(bricks[l], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(bricks[len(bricks)-l-1], blocks[k], blocks[6-i-j-k]) and \
                 self._checkInBetween(roofs[0], blocks[k], blocks[6-i-j-k]):
