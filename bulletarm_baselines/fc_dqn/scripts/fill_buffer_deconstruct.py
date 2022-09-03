@@ -192,20 +192,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   num_class = 2 * decon_envs.getNumObj() - 1
   print(f'num_class in deconstruct env: {num_class}')
   cnt = 0
-<<<<<<< HEAD
-  transitions = decon_envs.gatherDeconstructTransitions(planner_episode) 
-=======
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
-
-#   true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
-#   print(len(true_index))
-#   print(true_index)
-#   perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_class-2) or (true_index[i]-true_index[i-1] == num_class-1)]
-#   print(len(perfect_index))
-#   print(perfect_index)
-#   exit()
->>>>>>> 1b45564a01a5e2ef72ee4f975fac57420cd20ce2
-
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
     true_abs_state = torch.tensor(abs_state).to(device)
