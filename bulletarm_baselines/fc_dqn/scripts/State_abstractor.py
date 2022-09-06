@@ -309,7 +309,7 @@ if __name__ == '__main__':
     # model2.train_state_abstractor()
     # model2.evaluate_miss_dataset()
     # print('='*50)
-    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=True, device=torch.device('cuda'))
+    model3 = State_abstractor(goal_str=a, use_equivariant=True, equal_param=True, device=torch.device('cuda'))
     # model3.evaluate_miss_dataset()
     model3.train_state_abstractor(num_training_steps=15000)
 

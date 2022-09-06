@@ -283,10 +283,10 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
 
     true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
     # print(len(true_index))
-    # print(true_index)
+    print(true_index)
     perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
     # print(len(perfect_index))
-    # print(perfect_index)
+    print(perfect_index)
     # exit()
     for i in perfect_index:
         for j in range(num_classes-1, 0, -1):
@@ -343,4 +343,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=80000, debug=True)
+    collectData4ClassifierUsingDeconstruct(env='house_building_2', num_samples=80000, debug=True)

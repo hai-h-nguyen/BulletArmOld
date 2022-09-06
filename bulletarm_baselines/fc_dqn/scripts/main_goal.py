@@ -202,7 +202,7 @@ def train():
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='longdinh')
+        group=wandb_group, name=wandb_seed, entity='icra2023')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -283,7 +283,8 @@ def train():
     train_return = []
     if (get_bad_pred):
         dataset = ListDataset()
-        create_folder(f'outlier/debug_outlier_{env}_{wandb_group}')
+        # create_folder(f'outlier/debug_outlier_{env}_{wandb_group}')
+        create_folder('miss/')
         create_folder(f'miss/debug_miss_{env}_{wandb_group}')
         cnt = 0
     while logger.num_training_steps < max_train_step + 1:
@@ -308,40 +309,42 @@ def train():
         else:
             abs_states = true_abs_states 
 
-        ##############################################
-        # if (get_bad_pred and logger.num_training_steps<=5000):
-        #     for i in range(abs_states.shape[0]):
-        #         if (true_abs_states[i] != pred_abs_states[i]):
-        #             dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
-        #             dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-        #             dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-        #             dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states[i].cpu().detach().numpy().astype(np.int32))
-        #             dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states[i].cpu().detach().numpy().astype(np.int32))
-        #             plt.figure(figsize=(15,4))
-        #             plt.subplot(1,2,1)
-        #             plt.imshow(obs[i].reshape(128,128), cmap='gray')
-        #             plt.colorbar()
-        #             plt.subplot(1,2,2)
-        #             plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
-        #             plt.colorbar()
-        #             plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
-        #             if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-        #                 plt.savefig(f'outlier/debug_outlier_{env}_{wandb_group}/image_{cnt}.png')
-        #             else:
-        #                 plt.savefig(f'miss/debug_miss_{env}_{wandb_group}/image_{cnt}.png')
-        #             plt.close()
-        #             cnt += 1
-        #     if (logger.num_training_steps == 5000):
-        #         dataset = dataset.to_array_dataset({
-        #             "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
-        #             "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
-        #         })
-        #         dataset.metadata = {
-        #         "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
-        #         }
-        #         print('get',dataset.size,'data samples')
-        #         dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/data/train_data_{env}_{wandb_group}.h5")
-        ##############################################
+        #############################################
+        if (get_bad_pred and logger.num_training_steps<=5000):
+            for i in range(abs_states.shape[0]):
+                if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) != pred_abs_states[i].cpu().detach().numpy().astype(np.int32)) and (true_abs_states[i].cpu().detach().numpy().astype(np.int32) != num_classes):
+                    assert true_abs_states[i].cpu().detach().numpy() != pred_abs_states[i].cpu().detach().numpy()
+                    dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
+                    dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
+                    dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
+                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states[i].cpu().detach().numpy().astype(np.int32))
+                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states[i].cpu().detach().numpy().astype(np.int32))
+                    plt.figure(figsize=(15,4))
+                    plt.subplot(1,2,1)
+                    plt.imshow(obs[i].reshape(128,128), cmap='gray')
+                    plt.colorbar()
+                    plt.subplot(1,2,2)
+                    plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
+                    plt.colorbar()
+                    plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
+                    # if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
+                        # plt.savefig(f'outlier/debug_outlier_{env}_{wandb_group}/image_{cnt}.png')
+                    # else:
+                    plt.savefig(f'miss/debug_miss_{env}_{wandb_group}/image_{cnt}.png')
+                    plt.close()
+                    cnt += 1
+            if (logger.num_training_steps == 5000):
+                dataset = dataset.to_array_dataset({
+                    "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
+                    "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
+                })
+                dataset.metadata = {
+                "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
+                }
+                print('get',dataset.size,'data samples')
+                dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/train_data_{env}_{wandb_group}.h5")
+                exit()
+        #############################################
 
         abs_states = remove_outlier(abs_states,num_classes)
         abs_goals = update_abs_goals(abs_states)

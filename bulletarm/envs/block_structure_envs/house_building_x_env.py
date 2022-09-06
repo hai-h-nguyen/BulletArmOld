@@ -281,6 +281,7 @@ class HouseBuildingXEnv(BaseEnv):
         if self._isObjOnGround(blocks[i]) and \
             self._isObjOnGround(roofs[0]) and \
             self._checkOnTop(bricks[0], blocks[1-i]) and \
+            not bricks[0].isTouching(blocks[i]) and \
             not roofs[0].isTouching(bricks[0]) and \
             not roofs[0].isTouching(blocks[1-i]) and \
             not roofs[0].isTouching(blocks[i]):
