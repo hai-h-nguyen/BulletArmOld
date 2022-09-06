@@ -30,7 +30,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
-        dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{goal_str}.h5")
+        dataset.load_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/train_data_{goal_str}_goal_25_dqn_equi.h5")
         num_samples = dataset.size
         print(f"Total number samples: {num_samples}")
         abs_index = dataset["TRUE_ABS_STATE_INDEX"]
@@ -279,7 +279,7 @@ class State_abstractor():
 
     def evaluate_miss_dataset(self):
         self.eval_dataset = load_dataset(goal_str=self.goal_str, eval=True)
-        self.dataset, self.valid_dataset, self.test_dataset = load_dataset(goal_str=self.goal_str)
+        # self.dataset, self.valid_dataset, self.test_dataset = load_dataset(goal_str=self.goal_str)
 
         self.load_classifier()
         preds = []
@@ -292,15 +292,15 @@ class State_abstractor():
             
         print(f"Acc score: {accuracy_score(self.eval_dataset['TRUE_ABS_STATE_INDEX'], preds)}")
         print(f"F1 score: {f1_score(self.eval_dataset['TRUE_ABS_STATE_INDEX'], preds, average='weighted')}")
-        # print(f"Classification report: {classification_report(self.eval_dataset['TRUE_ABS_STATE_INDEX'], preds)}")
-        final_valid_loss = self.validate(dataset=self.valid_dataset)
-        print(f"Best Valid Loss: {final_valid_loss[0]} and Best Valid Accuracy: {final_valid_loss[1]}")
-        test_loss = self.validate(dataset=self.test_dataset)
-        print(f"Best Test Loss: {test_loss[0]} and Best Test Accuracy: {test_loss[1]}")
+        print(f"Classification report: {classification_report(self.eval_dataset['TRUE_ABS_STATE_INDEX'], preds)}")
+        # final_valid_loss = self.validate(dataset=self.valid_dataset)
+        # print(f"Best Valid Loss: {final_valid_loss[0]} and Best Valid Accuracy: {final_valid_loss[1]}")
+        # test_loss = self.validate(dataset=self.test_dataset)
+        # print(f"Best Test Loss: {test_loss[0]} and Best Test Accuracy: {test_loss[1]}")
 
 
 if __name__ == '__main__':
-    a = '1l2b2r'
+    a = 'house_building_4'
     # model1 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=False, device=torch.device('cuda'))
     # model1.evaluate_miss_dataset()
     # model.load_classifier()
@@ -309,9 +309,9 @@ if __name__ == '__main__':
     # model2.train_state_abstractor()
     # model2.evaluate_miss_dataset()
     # print('='*50)
-    model3 = State_abstractor(goal_str=a, use_equivariant=True, equal_param=True, device=torch.device('cuda'))
-    # model3.evaluate_miss_dataset()
-    model3.train_state_abstractor(num_training_steps=15000)
+    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=True, device=torch.device('cuda'))
+    model3.evaluate_miss_dataset()
+    # model3.train_state_abstractor(num_training_steps=15000)
 
 
 

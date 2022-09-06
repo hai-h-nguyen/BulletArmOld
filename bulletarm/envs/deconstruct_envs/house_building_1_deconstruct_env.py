@@ -45,13 +45,9 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       return 2
 
   def get_true_abs_state(self):
-    # if (not self.isSimValid()):
-    # #   triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
-    # #   print('is up:', self._checkObjUpright(triangles[0]))
-    # #   print('is val:', DeconstructEnv.isSimValid(self))
-    #   return self.num_class
     blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
     triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
+    
     if not self._checkObjUpright(triangles[0]) or not BaseEnv.isSimValid(self):
       return self.num_class
     if (self._checkStack(blocks+triangles) and self._checkObjUpright(triangles[0])):
@@ -61,20 +57,49 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
     if (self._checkStack(blocks) and (not self._isObjectHeld(triangles[0]))):
       return 2
     for i in range(3):
-      for j in range(i+1,3):
-        other = self.get_other(i,j)
-        if (self._checkStack([blocks[i],blocks[j]]) and (self._isObjectHeld(blocks[other]))):
-          return 3
-        if (self._checkStack([blocks[i],blocks[j]]) and (not self._isObjectHeld(blocks[other]))):
-          return 4
-    for i in range(3):
-      if (self._isObjectHeld(blocks[i])):
-        return 5
-    if self._isObjOnGround(triangles[0]) and self._isObjOnGround(blocks[0]) and self._isObjOnGround(blocks[1]) and self._isObjOnGround(blocks[2]):
-      return 6
-    return self.num_class
+      for j in range(3):
+        if i != j:
+          other = self.get_other(i,j)
+          if self._checkOnTop(blocks[i], blocks[j]) and \
+              self._isObjectHeld(blocks[other]) and \
+              self._isObjOnGround(triangles[0]) and \
+              self._isObjOnGround(blocks[i]) and \
+              not triangles[0].isTouching(blocks[i]) and \
+              not triangles[0].isTouching(blocks[j]):
+              return 3
 
-  
+          if self._checkOnTop(blocks[i], blocks[j]) and \
+              self._isObjOnGround(blocks[other]) and \
+              self._isObjOnGround(blocks[i]) and \
+              self._isObjOnGround(triangles[0]) and \
+              not triangles[0].isTouching(blocks[i]) and \
+              not triangles[0].isTouching(blocks[j]) and \
+              not triangles[0].isTouching(blocks[other]) and \
+              not blocks[other].isTouching(blocks[i]) and \
+              not blocks[other].isTouching(blocks[j]):
+              return 4
+
+          if self._isObjectHeld(blocks[j]) and \
+              self._isObjOnGround(blocks[i]) and \
+              self._isObjOnGround(blocks[other]) and \
+              self._isObjOnGround(triangles[0]) and \
+              not triangles[0].isTouching(blocks[i]) and \
+              not triangles[0].isTouching(blocks[other]) and \
+              not blocks[other].isTouching(blocks[i]):
+              return 5
+
+          if self._isObjOnGround(blocks[i]) and \
+              self._isObjOnGround(blocks[j]) and \
+              self._isObjOnGround(blocks[other]) and \
+              self._isObjOnGround(triangles[0]) and \
+              not triangles[0].isTouching(blocks[i]) and \
+              not triangles[0].isTouching(blocks[j]) and \
+              not triangles[0].isTouching(blocks[other]) and \
+              not blocks[other].isTouching(blocks[i]) and \
+              not blocks[other].isTouching(blocks[j]) and \
+              not blocks[i].isTouching(blocks[j]):
+              return 6
+    return self.num_class
 
 def createHouseBuilding1DeconstructEnv(config):
   return HouseBuilding1DeconstructEnv(config)
