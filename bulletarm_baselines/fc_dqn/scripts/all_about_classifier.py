@@ -289,9 +289,9 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
         classifier.create_dummy(dummy_number=dummy_number)
         classifier.to('cuda')
         if use_equivariant:
-            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt"))
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_str}.pt"))
         else:
-            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt"))
+            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_str}.pt"))
     else:
         if use_equivariant:
             classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_str}.pt"))
@@ -305,14 +305,14 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='house_building_2', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='house_building_3', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
     ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
     ap.add_argument('-lr', '--learning_rate', default=1e-3, help='Learning rate')
     ap.add_argument('-wd', '--weight_decay', default=1e-5, help='Weight decay')
     ap.add_argument('-ufm', '--use_equivariant', default=True, help='Using equivariant or not')
-    ap.add_argument('-up', '--use_proser', default=True, help='Using Proser (open-set recognition) or not')
+    ap.add_argument('-up', '--use_proser', default=False, help='Using Proser (open-set recognition) or not')
     ap.add_argument('-dn', '--dummy_number', default=5, help='Number of dummy classifiers')
     ap.add_argument('-fep', '--finetune_epoch', default=30, help='Number of finetune epoch')
     ap.add_argument('-ld0', '--lamda0', default=0.01, help='Weight for data placeholder loss')
@@ -351,14 +351,14 @@ if __name__ == "__main__":
     # eval_dataset = load_dataset(goal_str="eval_house_building_2", eval=True)
     # eval_dataset = load_dataset(goal_str='eval_house_building_2_dqn_equi_classifier', eval=True)
     # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_classifier', eval=True)
-    eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_equi_classifier', eval=True)
+    # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_equi_classifier', eval=True)
 
-    classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'])
-    eval_online, _ = validate_model(classifier=classifier, finetune=True)
-    print(f"Eval Acc: ", eval_online )
+    # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'])
+    # eval_online, _ = validate_model(classifier=classifier, finetune=True)
+    # print(f"Eval Acc: ", eval_online )
     # exit()
     # tsne_visualize(classifier=classifier, dataset=dataset)
-    exit()
+    # exit()
     # Build model
     classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'])
     classifier.train()
@@ -458,18 +458,19 @@ if __name__ == "__main__":
             torch.save(classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_string}.pt")
         
     elif args['grid_search']:
-        for dc in [1, 3, 5, 7, 9]:    
+        for dc in [5, 10, 15]:    
             for lamda0 in [0.001, 0.01, 0.1]:
-                for lamda1 in [0.1, 0.5, 0.8, 1, 1.2, 1.5, 2.0]:
-                    for lamda2 in [0.1, 0.5, 0.8, 1, 1.2, 1.5, 2.0]:
-                        print('=*50')
-                        print(f"Dummy class: {dc}, lamda0: {lamda0}, lamda1: {lamda1}, lamda2: {lamda2}")
-                        if args['use_equivariant']:
-                            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_string}.pt"))
-                        else:
-                            classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_string}.pt"))
-                        classifier.create_dummy(dummy_number=dc).to(device)
-                        classifier = finetune_model_to_proser(finetune_epoch=args['finetune_epoch'], finetune_learning_rate=args['learning_rate'], lamda0=lamda0, lamda1=lamda1, lamda2=lamda2)
+                for lamda2 in [0.1, 0.5, 0.8, 1, 1.2, 1.5, 2.0]:
+                    lamda1 = 1.0
+                    print('=*50')
+                    print(f"Dummy class: {dc}, lamda0: {lamda0}, lamda1: {lamda1}, lamda2: {lamda2}")
+                    if args['use_equivariant']:
+                        classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/equi_{goal_string}.pt"))
+                    else:
+                        classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{goal_string}.pt"))
+                    classifier.train()
+                    classifier.create_dummy(dummy_number=dc).to(device)
+                    classifier = finetune_model_to_proser(finetune_epoch=args['finetune_epoch'], finetune_learning_rate=args['learning_rate'], lamda0=lamda0, lamda1=lamda1, lamda2=lamda2)
     else:
         classifier = finetune_model_to_proser(finetune_epoch=args['finetune_epoch'], finetune_learning_rate=args['learning_rate'], lamda0=args['lamda0'], lamda1=args['lamda1'], lamda2=args['lamda2'])
         if not args['use_equivariant']:

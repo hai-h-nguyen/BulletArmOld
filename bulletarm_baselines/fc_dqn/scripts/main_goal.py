@@ -82,7 +82,7 @@ def saveModelAndInfo(logger, agent):
 def get_cls(classifier, obs, inhand):
     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
-    res = classifier([obs,inhand])
+    res = classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
     return torch.argmax(res,dim=1)
 
 def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
@@ -97,8 +97,8 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
     
     if debug:
         dataset = ListDataset()
-        create_folder(f'debug_outlier_{env}')
-        create_folder(f'debug_miss_{env}')
+        create_folder(f'outlier/eval_debug_outlier_{env}_{wandb_group}')
+        create_folder(f'miss/eval_debug_miss_{env}_{wandb_group}')
 
     cnt = 0
     while evaled < num_eval_episodes:
@@ -131,9 +131,9 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
                     plt.colorbar()
                     plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
                     if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                        plt.savefig(f'debug_outlier_{env}/image_{cnt}.png')
+                        plt.savefig(f'outlier/eval_debug_outlier_{env}_{wandb_group}/image_{cnt}.png')
                     else:
-                        plt.savefig(f'debug_miss_{env}/image_{cnt}.png')
+                        plt.savefig(f'miss/eval_debug_miss_{env}_{wandb_group}/image_{cnt}.png')
                     plt.close()
                     cnt += 1
 
@@ -171,7 +171,7 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
             "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
         }
         print('get',dataset.size,'data samples')
-        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/eval_{env}.h5")
+        dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/data/eval_data_{env}_{wandb_group}.h5")
 
     print(f'evaluate results: {total_return/num_eval_episodes}')
     Wandb_logging(f'mean evaluate return',total_return/num_eval_episodes,num_steps,wandb_logs)
@@ -207,12 +207,11 @@ def train(wandb_logs = 0):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=False, use_proser=False, dummy_number=1,device=device)
+    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
     # load classifier
-    # classifier = block_stacking_perfect_classifier()
     if (use_classifier):
         print('---- use abstract state from classifier  ----')
     else:
@@ -269,8 +268,8 @@ def train(wandb_logs = 0):
     train_return = []
     if (get_bad_pred):
         dataset = ListDataset()
-        create_folder(f'debug_outlier_{env}')
-        create_folder(f'debug_miss_{env}')
+        create_folder(f'outlier/debug_outlier_{env}_{wandb_group}')
+        create_folder(f'miss/debug_miss_{env}_{wandb_group}')
         cnt = 0
     while logger.num_training_steps < max_train_step + 1:
         if (logger.num_training_steps%eval_freq == 0 and logger.num_training_steps > 0):
@@ -295,7 +294,7 @@ def train(wandb_logs = 0):
             abs_states = true_abs_states 
 
         ##############################################
-        if (get_bad_pred and logger.num_training_steps<=1000):
+        if (get_bad_pred and logger.num_training_steps<=5000):
             for i in range(abs_states.shape[0]):
                 if (true_abs_states[i] != pred_abs_states[i]):
                     dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
@@ -312,12 +311,12 @@ def train(wandb_logs = 0):
                     plt.colorbar()
                     plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
                     if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                        plt.savefig(f'debug_outlier_{env}/image_{cnt}.png')
+                        plt.savefig(f'outlier/debug_outlier_{env}_{wandb_group}/image_{cnt}.png')
                     else:
-                        plt.savefig(f'debug_miss_{env}/image_{cnt}.png')
+                        plt.savefig(f'miss/debug_miss_{env}_{wandb_group}/image_{cnt}.png')
                     plt.close()
                     cnt += 1
-            if (logger.num_training_steps == 1000):
+            if (logger.num_training_steps == 5000):
                 dataset = dataset.to_array_dataset({
                     "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
                     "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
@@ -326,7 +325,7 @@ def train(wandb_logs = 0):
                 "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
                 }
                 print('get',dataset.size,'data samples')
-                dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/training_cls_{env}.h5")
+                dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/data/train_data_{env}_{wandb_group}.h5")
         ##############################################
 
         abs_states = remove_outlier(abs_states,num_classes)
@@ -430,21 +429,22 @@ def train(wandb_logs = 0):
     eval_envs.close()
 
 if __name__ == '__main__':
-    train(wandb_logs)
+    # train(wandb_logs)
 
     #------------- eval ------------#
-    # load_model_pre = '/home/hnguyen/huy/BulletArm/output/dqn_asr_equ_resu_df_flip_house_building_1_save/2022-08-09.23:40:50/models/'
-    # classifier = load_classifier(goal_str = env,num_classes=7)
-    # render = False
-    
-    # env_config['render'] = render
-    # eval_envs = EnvWrapper(1, env, env_config, planner_config)
-    # num_objects = eval_envs.getNumObj()
-    # num_classes = 2 * num_objects - 1 
-    # eval_agent = createAgent(num_classes,test=True)
-    # eval_agent.train()
-    # if load_model_pre:
-    #     eval_agent.loadModel(load_model_pre)
-    # eval_agent.eval()
-    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
-    # eval_envs.close()
+    print('---------------------evaluate phrase-------------------------')
+    render = False
+    env_config['render'] = render
+    eval_envs = EnvWrapper(1, env, env_config, planner_config)
+    num_objects = eval_envs.getNumObj()
+    num_classes = 2 * num_objects - 1 
+    load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
+    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+
+    eval_agent = createAgent(num_classes,test=True)
+    eval_agent.train()
+    if load_model_pre:
+        eval_agent.loadModel(load_model_pre)
+    eval_agent.eval()
+    evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
+    eval_envs.close()

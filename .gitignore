@@ -9,9 +9,15 @@ bulletarm_baselines/fc_dqn/classifiers/
 abc.txt
 mnp.txt
 abc/
+<<<<<<< HEAD
 debug_miss*/
 debug_outlier*/
 TSNE/
+=======
+outlier/
+miss/
+data/
+>>>>>>> fc69200882dd68c034c36e5461af45230a58281a
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

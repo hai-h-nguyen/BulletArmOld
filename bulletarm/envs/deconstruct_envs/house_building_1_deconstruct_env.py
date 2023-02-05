@@ -45,11 +45,6 @@ class HouseBuilding1DeconstructEnv(DeconstructEnv):
       return 2
 
   def get_true_abs_state(self):
-    # if (not self.isSimValid()):
-    # #   triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
-    # #   print('is up:', self._checkObjUpright(triangles[0]))
-    # #   print('is val:', DeconstructEnv.isSimValid(self))
-    #   return self.num_class
     blocks = list(filter(lambda x: self.object_types[x] == constants.CUBE, self.objects))
     triangles = list(filter(lambda x: self.object_types[x] == constants.TRIANGLE, self.objects))
     if not self._checkObjUpright(triangles[0]) or not BaseEnv.isSimValid(self):
