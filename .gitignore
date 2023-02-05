@@ -17,7 +17,11 @@ TSNE/
 outlier/
 miss/
 data/
+<<<<<<< HEAD
 >>>>>>> fc69200882dd68c034c36e5461af45230a58281a
+=======
+TSNE/
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

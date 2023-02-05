@@ -62,7 +62,7 @@ def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=Fals
         return dataset, valid_dataset, test_dataset
 
 
-def build_classifier(num_classes, use_equivariant=False):
+def build_classifier(num_classes,device, use_equivariant=False):
     """
     Build model classifier
 
@@ -81,15 +81,15 @@ def build_classifier(num_classes, use_equivariant=False):
     else:    
         conv_obs = ConvEncoder({
             "input_size": [128, 128, 1],
-            "filter_size": [3, 3, 3, 3, 3],
-            "filter_counts": [32, 64, 128, 256, 128],
-            "strides": [2, 2, 2, 2, 2],
+            "filter_size": [3, 3, 3, 3, 3, 3],
+            "filter_counts": [32, 64, 128, 256, 512, 128],
+            "strides": [1, 1, 1, 1, 1, 1],
             "use_batch_norm": True,
             "activation_last": True,
             "flat_output": False
         })
         # average pool Bx128x5x5 into Bx128x1x1 and reshape that into Bx128
-        conv_obs_avg_pool = nn.AvgPool2d(kernel_size=4, stride=1, padding=0)
+        conv_obs_avg_pool = nn.AvgPool2d(kernel_size=2, stride=1, padding=0)
     conv_obs_view = View([128])
     conv_obs_encoder = nn.Sequential(conv_obs, conv_obs_avg_pool, conv_obs_view)
 
@@ -101,7 +101,7 @@ def build_classifier(num_classes, use_equivariant=False):
         "input_size": [24, 24, 1],
         "filter_size": [3, 3, 3, 3],
         "filter_counts": [32, 64, 128, 128],
-        "strides": [2, 2, 2, 2],
+        "strides": [1, 1, 1, 1],
         "use_batch_norm": True,
         "activation_last": True,
         "flat_output": False
@@ -129,6 +129,8 @@ def build_classifier(num_classes, use_equivariant=False):
     classifier.to(device)
     return classifier
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def get_batch(epoch_step, dataset):
     b = np.index_exp[epoch_step * batch_size: (epoch_step + 1) * batch_size]
@@ -156,18 +158,19 @@ def validate(classifier, valid_dataset):
     classifier.train()
     return result.mean("TOTAL_LOSS"), result.mean("ACCURACY")
 
-def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lamda1, lamda2):
+# def finetune_model_to_proser(finetune_epoch, finetune_learning_rate, lamda0, lamda1, lamda2):
    
-    finetune_loss = nn.CrossEntropyLoss()
-    finetune_optimizer = optim.SGD(classifier.parameters(), lr=finetune_learning_rate, momentum=0.9, weight_decay=5e-4)
+#     finetune_loss = nn.CrossEntropyLoss()
+#     finetune_optimizer = optim.SGD(classifier.parameters(), lr=finetune_learning_rate, momentum=0.9, weight_decay=5e-4)
 
-    false_count = 0
-    best_finetune_model = None
+#     false_count = 0
+#     best_finetune_model = None
    
-    for fi_ep in range(finetune_epoch):
-        dataset.shuffle()
-        classifier.train()
+#     for fi_ep in range(finetune_epoch):
+#         dataset.shuffle()
+#         classifier.train()
         
+<<<<<<< HEAD
         train_loss = 0
         correct = 0
         total = 0
@@ -253,6 +256,97 @@ def validate_model(classifier, finetune=False):
     classifier.train()
     return f1_score(eval_dataset["TRUE_ABS_STATE_INDEX"], preds, average='micro'), validate(classifier=classifier, valid_dataset=valid_dataset)[1]
     
+=======
+#         train_loss = 0
+#         correct = 0
+#         total = 0
+#         percent = []
+#         for i in range(epoch_size):
+#             obs, hand_obs, abs_task_indices = get_batch(epoch_step=i, dataset=dataset)
+#             finetune_optimizer.zero_grad()
+#             beta = torch.distributions.Beta(1, 1).sample([]).item()
+
+#             halflength = int(len(obs)/2)
+#             prehalf_obs = obs[:halflength]
+#             prehalf_hand_obs = hand_obs[:halflength]
+#             prehalf_label = abs_task_indices[:halflength]
+#             posthalf_obs = obs[halflength:]
+#             posthalf_hand_obs = hand_obs[halflength:]
+#             poshalf_label = abs_task_indices[halflength:]
+#             index = torch.randperm(prehalf_obs.size(0)).to(device)
+#             pre2embeddings = classifier.pre2block([prehalf_obs, prehalf_hand_obs])
+#             mixed_embeddings = beta*pre2embeddings + (1-beta)*pre2embeddings[index]
+
+#             dummylogit = classifier.dummypredict([posthalf_obs, posthalf_hand_obs])
+#             post_outputs = classifier.forward([posthalf_obs, posthalf_hand_obs])
+#             posthalf_output = torch.cat((post_outputs, dummylogit), 1)
+#             prehalf_output = torch.cat((classifier.latter2blockclf1(mixed_embeddings), classifier.latter2blockclf2(mixed_embeddings)), 1)
+#             maxdummy, _ = torch.max(dummylogit.clone(), dim=1)
+#             maxdummy = maxdummy.view(-1, 1)
+#             dummyoutputs = torch.cat((post_outputs.clone(), maxdummy), dim=1)
+#             for i in range(len(dummyoutputs)):
+#                 nowlabel = poshalf_label[i]
+#                 dummyoutputs[i][nowlabel] = -1e-9
+#             dummytargets = torch.ones_like(poshalf_label)*num_classes
+#             outputs = torch.cat((prehalf_output, posthalf_output), 0)
+#             loss1 = finetune_loss(prehalf_output, (torch.ones_like(prehalf_label)*num_classes).long().to(device))
+#             loss2 = finetune_loss(posthalf_output, poshalf_label.long())
+#             loss3 = finetune_loss(dummyoutputs, dummytargets.long())
+#             loss = lamda0 * loss1 +  lamda1 * loss2 + lamda2 * loss3
+#             loss.backward()
+#             finetune_optimizer.step()
+#             train_loss += loss.item()
+#             _, predicted = outputs.max(1)
+#             total += abs_task_indices.size(0)
+#             correct += predicted.eq(abs_task_indices).sum().item()
+#             percent.append(correct/total)
+#         percent = np.array(percent)
+#         print(f"Finetune Epoch {fi_ep}: {percent.mean()}")
+
+#         per, valid = validate_model(classifier=classifier, finetune=True)
+#         print(per, valid)
+#         if per > false_count and valid > 0.95:
+#             false_count = per
+#             best_finetune_model = cp.deepcopy(classifier.state_dict())
+#             print("[INFO] Saving classifier ...")
+#     if best_finetune_model is not None: 
+#         classifier.load_state_dict(best_finetune_model)
+#     else:
+#         print("NOTHING GOOD")
+        
+#     return classifier    
+
+# def validate_model(classifier, finetune=False):
+#     classifier.eval()
+#     correct = 0
+#     unseen = 0
+#     preds = []
+#     # throws away a bit of data if validation set size % batch size != 0
+#     for i in range(eval_dataset.size):
+#         obs = torch.from_numpy(eval_dataset["OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
+#         hand_obs = torch.from_numpy(eval_dataset["HAND_OBS"][i][np.newaxis, np.newaxis, :, :]).to(device)
+#         # true_abs_state_index = torch.tensor(eval_dataset["TRUE_ABS_STATE_INDEX"][i]).to(device)
+#         if finetune:
+#             pred = classifier.proser_prediction([obs, hand_obs])
+#             preds.append(pred.cpu().detach().numpy())
+#         else:
+#             pred = classifier.get_prediction([obs, hand_obs], logits=False, hard=True)
+#             preds.append(pred.cpu().detach().numpy()[0])
+#         # if pred == true_abs_state_index:
+#             # correct += 1
+#         # if pred == num_classes and pred == true_abs_state_index:
+#             # unseen += 1
+#     # print(preds)
+#     print(classification_report(eval_dataset["TRUE_ABS_STATE_INDEX"], preds))
+#     print('--------')
+#     classifier.train()
+#     return f1_score(eval_dataset["TRUE_ABS_STATE_INDEX"], preds, average='micro'), validate(classifier=classifier, valid_dataset=valid_dataset)[1]
+
+def scale_to_01_range(x):
+    value_range = np.max(x) - np.min(x)
+    return (x-np.min(x))/value_range
+
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
 def tsne_visualize(classifier, dataset):
     print(dataset.size)
     # exit()
@@ -274,17 +368,23 @@ def tsne_visualize(classifier, dataset):
     create_folder("TSNE")
     df = pd.DataFrame()
     df["y"] = label
-    df['comp-1'] = out[:, 0]
-    df['comp-2'] = out[:, 1]
+    df['comp-1'] = scale_to_01_range(out[:, 0])
+    df['comp-2'] = scale_to_01_range(out[:, 1])
 
     sns_plot = sns.scatterplot(x='comp-1', y='comp-2', hue=df.y.tolist(),
                         palette=sns.color_palette("hls", num_classes), data=df).set(title=f"{goal_string}")
     
     plt.savefig(f"TSNE/{goal_string}.png")
 
+<<<<<<< HEAD
 def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1):
     classifier = build_classifier(num_classes=num_classes, use_equivariant=use_equivariant)
+=======
+def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=False, dummy_number=1,device=None):
+    classifier = build_classifier(num_classes=num_classes,device=device, use_equivariant=use_equivariant)
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
     classifier.train()
+    # classifier.to(device)
     if use_proser:
         classifier.create_dummy(dummy_number=dummy_number)
         classifier.to('cuda')
@@ -305,10 +405,10 @@ def load_classifier(goal_str, num_classes, use_equivariant=False, use_proser=Fal
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument('-gs', '--goal_str', default='house_building_3', help='The goal string task')
+    ap.add_argument('-gs', '--goal_str', default='house_building_4', help='The goal string task')
     ap.add_argument('-bs', '--batch_size', default=32, help='Number of samples in a batch')
     ap.add_argument('-nts', '--num_training_steps', default=10000, help='Number of training step')
-    ap.add_argument('-dv', '--device', default='cuda:0', help='Having gpu or not')
+    ap.add_argument('-dv', '--device', default='cuda:1', help='Having gpu or not')
     ap.add_argument('-lr', '--learning_rate', default=1e-3, help='Learning rate')
     ap.add_argument('-wd', '--weight_decay', default=1e-5, help='Weight decay')
     ap.add_argument('-ufm', '--use_equivariant', default=True, help='Using equivariant or not')
@@ -353,14 +453,18 @@ if __name__ == "__main__":
     # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_classifier', eval=True)
     # eval_dataset = load_dataset(goal_str='training_cls_house_building_2_dqn_equi_classifier', eval=True)
 
+<<<<<<< HEAD
     # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'])
+=======
+    # classifier = load_classifier(goal_str=goal_string, num_classes=num_classes, use_proser=proser, dummy_number=5, use_equivariant=args['use_equivariant'], device=device)
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
     # eval_online, _ = validate_model(classifier=classifier, finetune=True)
     # print(f"Eval Acc: ", eval_online )
     # exit()
     # tsne_visualize(classifier=classifier, dataset=dataset)
     # exit()
     # Build model
-    classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'])
+    classifier = build_classifier(num_classes=num_classes, use_equivariant=args['use_equivariant'], device=device)
     classifier.train()
     if proser:
         if args['use_equivariant']:
@@ -374,6 +478,7 @@ if __name__ == "__main__":
           # Init optimizer
         params = classifier.parameters()
         print("num parameter tensors: {:d}".format(len(list(classifier.parameters()))))
+        print(count_parameters(classifier))
         opt = optim.Adam(params, lr=args['learning_rate'], weight_decay=args['weight_decay'])
         best_val_loss, best_classifier = None, None
 
@@ -477,3 +582,5 @@ if __name__ == "__main__":
             torch.save(classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/finetune_{goal_string}.pt")
         else:
             torch.save(classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/finetune_equi_{goal_string}.pt")
+
+

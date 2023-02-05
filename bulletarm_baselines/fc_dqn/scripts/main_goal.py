@@ -31,8 +31,9 @@ from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentBufferD4
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import fillDeconstructUsingRunner,train_fillDeconstructUsingRunner
 
-from bulletarm_baselines.fc_dqn.scripts.load_classifier import block_stacking_perfect_classifier
 from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
+from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
+
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
@@ -187,13 +188,15 @@ def Wandb_logging(key, value, step_idx,wandb_logs):
             wandb.log({key:value},step = step_idx)
         except:
             print(f'[INFO] {key}: {value}')
+    else:
+        print(f'[INFO] {key}: {value}')
 
 def train(wandb_logs = 0):
     print(f'trainning for {max_train_step} step on {env}')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='hmhuy')
+        group=wandb_group, name=wandb_seed, entity='longdinh')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -202,12 +205,19 @@ def train(wandb_logs = 0):
     if seed is not None:
         set_seed(seed)
     # setup env
-    envs = EnvWrapper(num_processes, env, env_config, planner_config)
-    eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
+    if env in ['1l1l1r', '1l1l2r', '1l2b2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
+        env_config['goal_string'] = env
+        envs = EnvWrapper(num_processes, 'house_building_x', env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, 'house_building_x', env_config, planner_config)
+    else:    
+        envs = EnvWrapper(num_processes, env, env_config, planner_config)
+        eval_envs = EnvWrapper(num_eval_processes, env, env_config, planner_config)
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    print(device)
+    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device).load_classifier()
+    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
 
@@ -243,7 +253,7 @@ def train(wandb_logs = 0):
         replay_buffer = QLearningBufferExpert(buffer_size)
     else:
         raise NotImplementedError('buffer type in ["expert"]')
-        
+    tmp_buffers = [[] for _ in range(num_processes)]
     exploration = LinearSchedule(schedule_timesteps=explore, initial_p=init_eps, final_p=final_eps)
     print(f'explore scheduler for {explore} steps, from {init_eps} to {final_eps}')
 
@@ -347,7 +357,6 @@ def train(wandb_logs = 0):
 
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
-
         true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
         pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
         if (use_classifier):
@@ -363,9 +372,29 @@ def train(wandb_logs = 0):
             if goals_achieved[i].cpu().item() is False:
                 dones[i] = 1.0
             else:
-                success_goal[abs_goals[i]] += 1
                 if (abs_goals[i] == 0):
-                    rewards[i] = clone_rewards[i]
+                    rewards[i] = clone_rewards[i] - 1.0
+                    goals_achieved[i] = (rewards[i] == 0)
+                    if (goals_achieved[i].cpu().item() is True):
+                        success_goal[abs_goals[i]] += 1
+                    continue
+
+                if (dones[i]>0):
+                    # print('done i', dones[i])
+                    # print('goal achieved', goals_achieved[i].cpu().item())
+                    # plt.figure(figsize=(8, 8))
+                    # plt.subplot(1, 2, 1)
+                    # plt.imshow(obs[i].cpu().detach().numpy().reshape(128, 128))
+                    # plt.title(str(abs_states))
+                    # plt.subplot(1, 2, 2)
+                    # plt.imshow(obs_[i].cpu().detach().numpy().reshape(128, 128))
+                    # plt.title(str(abs_states_next))
+                    # plt.savefig(f'img_{i}_{logger.num_training_steps}.png')
+
+                    goals_achieved[i] = not goals_achieved[i]
+                else:
+                    success_goal[abs_goals[i]] += 1
+
                     
         rewards = rewards.cpu()
         done_idxes = torch.nonzero(dones).squeeze(1)
@@ -380,7 +409,7 @@ def train(wandb_logs = 0):
         buffer_obs_ = getCurrentObs(in_hands_, obs_)
 
         for i in range(num_processes):
-            replay_buffer.add(
+            tmp_buffers[i].append(
                 ExpertTransition(states[i], buffer_obs[i], actions_star_idx[i], rewards[i], 
                                 states_[i], buffer_obs_[i], 
                                 #------------------#
@@ -391,6 +420,15 @@ def train(wandb_logs = 0):
                                 abs_states[i], abs_goals[i],
                                 abs_states_next[i],abs_goals_next[i])
             )
+
+        for j, idx in enumerate(done_idxes):
+            for i in range(len(tmp_buffers[idx])):
+                tmp = tmp_buffers[idx][i]
+                if (clone_rewards[idx]>0):
+                    tmp = tmp._replace(reward=tmp.reward + 0.0)
+                replay_buffer.add(tmp)
+            tmp_buffers[idx] = []
+
         logger.logStep(clone_rewards.cpu().numpy(), dones.cpu().numpy())
 
         states = copy.copy(states_)
@@ -429,22 +467,22 @@ def train(wandb_logs = 0):
     eval_envs.close()
 
 if __name__ == '__main__':
-    # train(wandb_logs)
-
+    print('---------------------    trainning phrase    -------------------------')
+    train(wandb_logs)
     #------------- eval ------------#
-    print('---------------------evaluate phrase-------------------------')
-    render = False
-    env_config['render'] = render
-    eval_envs = EnvWrapper(1, env, env_config, planner_config)
-    num_objects = eval_envs.getNumObj()
-    num_classes = 2 * num_objects - 1 
-    load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
-    classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    print('---------------------    evaluate phrase     -------------------------')
+    # render = False
+    # env_config['render'] = render
+    # eval_envs = EnvWrapper(1, env, env_config, planner_config)
+    # num_objects = eval_envs.getNumObj()
+    # num_classes = 2 * num_objects - 1 
+    # load_model_pre = '/home/hnguyen/huy/BulletArm/output/tmp_draft_house_4_equi_dqn/2022-08-20.11:23:07/models/'
+    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
 
-    eval_agent = createAgent(num_classes,test=True)
-    eval_agent.train()
-    if load_model_pre:
-        eval_agent.loadModel(load_model_pre)
-    eval_agent.eval()
-    evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
-    eval_envs.close()
+    # eval_agent = createAgent(num_classes,test=True)
+    # eval_agent.train()
+    # if load_model_pre:
+    #     eval_agent.loadModel(load_model_pre)
+    # eval_agent.eval()
+    # evaluate(envs=eval_envs,agent=eval_agent,num_eval_episodes=1000,classifier=classifier, debug=True,render=render)
+    # eval_envs.close()

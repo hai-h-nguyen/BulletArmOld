@@ -10,10 +10,17 @@ from tqdm import tqdm
 from bulletarm_baselines.fc_dqn.utils.parameters import *
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset
 import matplotlib.pyplot as plt
+import os
 
 sys.path.append('./')
 sys.path.append('..')
 from bulletarm_baselines.fc_dqn.utils.env_wrapper import EnvWrapper
+
+def create_folder(path):
+    try:
+        os.mkdir(path)
+    except:
+        print(f'[INFO] folder {path} existed, can not create new')
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
 
@@ -240,10 +247,15 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
     deconstruct_env = env + '_deconstruct'
+  elif env in ['1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
+        deconstruct_env = 'house_building_x' + '_deconstruct'
+        env_config['goal_string'] = env
   else:
     raise NotImplementedError('deconstruct env not supported for env: {}'.format(env))
 #   env_config['render'] = True
   decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+  num_class = 2 * decon_envs.getNumObj() - 1
+  print(f'num_class in deconstruct env: {num_class}')
   cnt = 0
   transitions = decon_envs.gatherDeconstructTransitions(planner_episode)
   for i, transition in enumerate(transitions):
@@ -254,7 +266,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state = pred_abs_state
     else:
         abs_state = true_abs_state
-    abs_state = remove_outlier(abs_state,5)
+    abs_state = remove_outlier(abs_state, num_class)
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
     pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
 
@@ -262,13 +274,7 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state_next = pred_abs_state_next 
     else:
         abs_state_next = true_abs_state_next 
-    abs_state_next = remove_outlier(abs_state_next,5)
-
-    # if (pred_abs_state != true_abs_state):
-    #     print(f'fail 1: {pred_abs_state}\t{true_abs_state}')
-    # if (true_abs_state_next != pred_abs_state_next):
-    #     print(f'fail 2: {pred_abs_state_next}\t{true_abs_state_next}')
-
+    abs_state_next = remove_outlier(abs_state_next,num_class)
 
     abs_goal = update_abs_goals(abs_state)
     abs_goal_next =  update_abs_goals(abs_state_next)
@@ -324,9 +330,14 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
              'ramp_improvise_house_building_2',
              'ramp_improvise_house_building_3']:
         deconstruct_env = env + '_deconstruct'
+<<<<<<< HEAD
         # decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     elif env in ['1b1r', '2b1r', '1l1r', '1l2r', '1b1b1r', '2b1b1r', '2b2b1r',
                     '2b2b2r', '2b1l1r', '1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r']:
+=======
+        decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
+    elif env in ['1l1b1r', '1l2b2r', '1l1l1r', '1l1l2r', '1l2b1r', '1l2b2b2r', '1l2b1l2b2r']:
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
         deconstruct_env = 'house_building_x' + '_deconstruct'
         env_config['goal_string'] = env
     else:
@@ -335,6 +346,7 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
     decon_envs = EnvWrapper(num_processes, deconstruct_env, env_config, planner_config)
     num_objects = decon_envs.getNumObj()
     num_classes = 2*num_objects-1
+    print(num_classes)
 
     num_episodes = num_samples // num_classes
     dataset = ListDataset()
@@ -344,16 +356,20 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         inhands = []
         labels = []
         states = []
+<<<<<<< HEAD
         num_episodes = 20
     print('ok')
+=======
+        num_episodes = 10
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
     transitions = decon_envs.gatherDeconstructTransitions(num_episodes)
     decon_envs.close()
     transitions.reverse()
 
     true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
-    print(true_index)
+    # print(true_index)
     perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
-    print(perfect_index)
+    # print(perfect_index)
     for i in perfect_index:
         for j in range(num_classes-1, 0, -1):
         
@@ -380,7 +396,12 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
                 dataset.add("DONES", 1)
                 dataset.add("ABS_STATE_INDEX", 0)
     if debug:
+<<<<<<< HEAD
         create_folder("check_collect_image")
+=======
+        create_folder('check_collect_image')
+        print(len(states))
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
         for i in range(len(states)):
             plt.figure(figsize=(15,4))
             plt.subplot(1,2,1)
@@ -398,10 +419,16 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_samples= 1000, debu
         "DONES": bool,
         "ABS_STATE_INDEX": np.int32,
     })
-    print("Number collected data sample: ", dataset.size)
-    dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
+    print(f"Number collected data sample of {env}: ", dataset.size)
+    dataset = dataset.split(5000*num_classes)
+    print(f"Number saved data sample of {env}: ", dataset.size)
 
+    dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
     print("DONE!!!")
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     collectData4ClassifierUsingDeconstruct(env='block_stacking', num_samples=50000, debug=True)
+=======
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_samples=150000, debug=False)
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753

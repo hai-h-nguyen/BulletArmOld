@@ -95,6 +95,45 @@ class BlockStackingDeconstructEnv(DeconstructEnv):
   #     return self.num_class
   #   if self._checkStack():
   #     return 0
+<<<<<<< HEAD
+=======
+
+  #   blocks_on_ground = list(filter(self._isObjOnGround, blocks))
+  #   if len(blocks_on_ground) == self.num_obj:
+  #     return 6
+    
+  #   if len(blocks_on_ground) == self.num_obj-1:
+  #     for i in range(self.num_obj):
+  #       if blocks[i] not in blocks_on_ground:
+  #         if self._isObjectHeld(blocks[i]):
+  #           return 5
+  #         for j in range(self.num_obj-1):
+  #           blocks_on_ground_copy = deepcopy(blocks_on_ground)
+  #           if self._checkOnTop(blocks_on_ground[j], blocks[i]):
+  #             del blocks_on_ground_copy[j]
+  #             if not blocks[i].isTouching(blocks_on_ground_copy[0]) and not blocks[i].isTouching(blocks_on_ground_copy[1]):
+  #               return 4
+    
+  #   if len(blocks_on_ground) == self.num_obj-2:
+  #     blocks_out_ground = [blocks[i] for i in range(self.num_obj) if blocks[i] not in blocks_on_ground]
+  #     for i in range(len(blocks_on_ground)):
+  #       for j in range(len(blocks_out_ground)):
+  #         if self._checkOnTop(blocks_on_ground[i], blocks_out_ground[j]) and \
+  #           not blocks_out_ground[j].isTouching(blocks_on_ground[len(blocks_on_ground)-i-1]):
+  #           if self._isObjectHeld(blocks_out_ground[len(blocks_out_ground)-j-1]):
+  #             return 3
+  #           if self._checkOnTop(blocks_out_ground[j], blocks_out_ground[len(blocks_out_ground)-j-1]):
+  #             return 2
+    
+  #   if len(blocks_on_ground) == self.num_obj-3:
+  #     for i in range(self.num_obj):
+  #       if self._isObjectHeld(blocks[i]):
+  #         stack = [blocks[j] for j in range(self.num_obj) if blocks[j] != blocks[i]]
+  #         if self._checkStack(stack):
+  #           return 1
+    
+  #   return self.num_class
+>>>>>>> e73a3c733e8c13e4805e2163a19b595eefc37753
 
   #   blocks_on_ground = list(filter(self._isObjOnGround, blocks))
   #   if len(blocks_on_ground) == self.num_obj:
