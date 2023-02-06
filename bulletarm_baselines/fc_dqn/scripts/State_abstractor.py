@@ -1,6 +1,6 @@
 from bulletarm_baselines.fc_dqn.utils.SoftmaxClassifier import SoftmaxClassifier
 from bulletarm_baselines.fc_dqn.utils.View import View
-from bulletarm_baselines.fc_dqn.utils.ConvEncoder import ConvEncoder
+from bulletarm_baselines.fc_dqn.utils.ConvEncoder import ConvEncoder, CNNOBSEncoder, CNNHandObsEncoder
 from bulletarm_baselines.fc_dqn.utils.SplitConcat import SplitConcat
 from bulletarm_baselines.fc_dqn.utils.FCEncoder import FCEncoder
 from bulletarm_baselines.fc_dqn.utils.EquiObs import EquiObs
@@ -26,7 +26,7 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.2, test_fraction=0.1, eval=False):
+def load_dataset(goal_str, validation_fraction=0.4, test_fraction=0.5, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
@@ -80,66 +80,34 @@ class State_abstractor():
 
         if self.use_equivariant:
             self.name = 'equi_' + self.goal_str
-        elif self.equal_param:
-            self.name = 'equal_' + self.goal_str
         else:
             self.name = self.goal_str
 
         self.build_state_abstractor()
 
     def build_state_abstractor(self):
-        if self.use_equivariant:
-            self.equal_param = False
 
         if self.use_equivariant:
             print('='*50)
             print('----------\t Equivaraint Model \t -----------')
             print('='*50)
-            conv_obs = EquiObs(num_subgroups=4, filter_sizes=[3, 3, 3, 3, 3, 3], filter_counts=[32, 64, 128, 256, 512, 128])
-
-            conv_hand_obs = EquiHandObs(num_subgroups=8, filter_sizes=[3, 3, 3, 3], filter_counts=[32, 64, 128, 128])
+            conv_obs = EquiObs(num_subgroups=4)
+            conv_hand_obs = EquiHandObs(num_subgroups=4)
         else:    
-            conv_obs = ConvEncoder({
-            "input_size": [128, 128, 1],
-            "filter_size": [3, 3, 3, 3, 3, 3],
-            "filter_counts": [32, 64, 128, 256, 512, 128],
-            "strides": [1, 1, 1, 1, 1, 1],
-            "use_batch_norm": True,
-            "activation_last": True,
-            "flat_output": False
-            })
+            conv_obs = CNNOBSEncoder()
+            conv_hand_obs = CNNHandObsEncoder()
 
-            conv_hand_obs = ConvEncoder({
-            "input_size": [24, 24, 1],
-            "filter_size": [3, 3, 3, 3],
-            "filter_counts": [32, 64, 128, 128],
-            "strides": [1, 1, 1, 1],
-            "use_batch_norm": True,
-            "activation_last": True,
-            "flat_output": False
-            })
-
-        conv_obs_avg_pool = nn.AvgPool2d(kernel_size=2, stride=1, padding=0)
         conv_obs_view = View([128])
-        conv_obs_encoder = nn.Sequential(conv_obs, conv_obs_avg_pool, conv_obs_view)
+        conv_obs_encoder = nn.Sequential(conv_obs, conv_obs_view)
 
         conv_hand_obs_view = View([128])
         conv_hand_obs_encoder = nn.Sequential(conv_hand_obs, conv_hand_obs_view)
-        
+
         conv_encoder = SplitConcat([conv_obs_encoder, conv_hand_obs_encoder], 1)
 
-        if self.equal_param:
-            intermediate_fc = FCEncoder({
+        intermediate_fc = FCEncoder({
             "input_size": 256,
-            "neurons": [512, 1024, 1024, 2048, 2048, 1024, 1024, 512, 256, 128],
-            "use_batch_norm": True,
-            "use_layer_norm": False,
-            "activation_last": True
-        })
-        else:
-            intermediate_fc = FCEncoder({
-            "input_size": 256,
-            "neurons": [256, 256, 128],
+            "neurons": [256, 128],
             "use_batch_norm": True,
             "use_layer_norm": False,
             "activation_last": True
@@ -309,9 +277,9 @@ if __name__ == '__main__':
     # model2.train_state_abstractor()
     # model2.evaluate_miss_dataset()
     # print('='*50)
-    model3 = State_abstractor(goal_str=a, use_equivariant=False, equal_param=True, device=torch.device('cuda'))
-    model3.evaluate_miss_dataset()
-    # model3.train_state_abstractor(num_training_steps=15000)
+    model3 = State_abstractor(goal_str=a, use_equivariant=False, device=torch.device('cuda'))
+    # model3.evaluate_miss_dataset()
+    model3.train_state_abstractor(num_training_steps=15000)
 
 
 

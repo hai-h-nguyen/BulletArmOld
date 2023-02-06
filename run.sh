@@ -1,7 +1,7 @@
 # export PYTHONPATH=/home/hnguyen/long_branch/huy_new/BulletArm/:$PYTHONPATH
 # export PYTHONPATH=/home/hnguyen/long_branch/house/BulletArm/:$PYTHONPATH
 # export PYTHONPATH=/home/hainguyen/huy/BulletArm/:$PYTHONPATH
-export PYTHONPATH=/home/hainguyen/long_branch/BulletArm/:$PYTHONPATH
+export PYTHONPATH=/home/hainguyen/long_branch/house/BulletArm/:$PYTHONPATH
 # export PYTHONPATH=/home/huy/Documents/Robotics/BulletArm/:$PYTHONPATH
 
 CUDA_VISIBLE_DEVICES=1 python bulletarm_baselines/fc_dqn/scripts/main_goal.py\
