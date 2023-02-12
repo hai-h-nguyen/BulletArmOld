@@ -335,9 +335,6 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_episodes=100, debug
         "ABS_STATE_INDEX": np.int32,
     })
     print("Number collected data sample: ", dataset.size)
-    # dataset = dataset.split(5000*num_classes)
-    print("Number collected data sample: ", dataset.size)
-    print("Number collected data sample: ", len(dataset['OBS']))
 
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
 
