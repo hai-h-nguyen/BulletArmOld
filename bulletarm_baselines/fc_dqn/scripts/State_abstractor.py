@@ -319,14 +319,20 @@ class State_abstractor():
             d = np.array(d)
             d = np.quantile(d, 0.95)
             out[i] = [mu, pinv_sigma, d*1.25]
+        return out
 
-        
+    def test(self, out, dataset=None, outlier=False):
         true_label = []
         pred_label = []
-        for i in range(self.valid_dataset.size):
-            true_label.append(self.valid_dataset['ABS_STATE_INDEX'][i])
-            obs = torch.from_numpy(self.valid_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            hand_obs = torch.from_numpy(self.valid_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+        if outlier:
+            dataset = load_dataset(goal_str=self.goal_str, eval=True)
+        for i in range(dataset.size):
+            if outlier:
+                true_label.append(dataset['TRUE_ABS_STATE_INDEX'][i])
+            else:
+                true_label.append(dataset['ABS_STATE_INDEX'][i])
+            obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            hand_obs = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             feature = self.classifier.embedding([obs, hand_obs]).detach().cpu().numpy().reshape(256)
             d = []
             for j in range(self.num_classes):
@@ -339,33 +345,9 @@ class State_abstractor():
                 pred_label.append(self.num_classes)
             else:
                 pred_label.append(self.classifier.get_prediction(x=[obs, hand_obs], hard=True).detach().cpu().numpy().reshape(1)[0])
-        acc = accuracy_score(true_label, pred_label)
-        print(f'Accuracy: {acc}')
+        # print classification report
+        print(classification_report(true_label, pred_label, digits=4))
         
-        outlier_dataset = load_dataset(goal_str=self.goal_str, eval=True)
-        pred_label = []
-        fp = 0
-        for i in range(outlier_dataset.size):
-            obs = torch.from_numpy(outlier_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            hand_obs = torch.from_numpy(outlier_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            feature = self.classifier.embedding([obs, hand_obs]).detach().cpu().numpy().reshape(256)
-            # calculate mahanalobis distance
-            d = []
-            for j in range(self.num_classes):
-                mu, inv_sigma, _ = out[j]
-                dist = self.compute_mahalanobis(mu, inv_sigma, feature)
-            d.append(dist)
-            d_min = min(d)
-            index_d = d.index(d_min)
-            if d_min > out[index_d][2]:
-                pred_label.append(self.num_classes)
-            else:
-                l = self.classifier.get_prediction(x=[obs, hand_obs], hard=True).detach().cpu().numpy().reshape(1)[0]
-                if l == outlier_dataset['TRUE_ABS_STATE_INDEX'][i]:
-                    fp += 1
-        print(f'Outlier Acc: {len(pred_label)}')
-        print(f'Correct False Positive: {fp}')
-
     def load_classifier(self):
         self.classifier.train()
         self.classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt"))
@@ -374,7 +356,7 @@ class State_abstractor():
         return self.classifier
 
 class SupCon_State_abstractor(State_abstractor):
-    def __init__(self, goal_str, use_equivariant=False, device=torch.device('cuda')):
+    def __init__(self, goal_str=None, use_equivariant=None, device=None):
         self.goal_str = goal_str
         self.use_equivariant = use_equivariant
         self.device = device
@@ -398,7 +380,7 @@ class SupCon_State_abstractor(State_abstractor):
             self.name = 'equi_' + self.goal_str
         else:
             self.name = self.goal_str
-        self.name = '00supcon_' + self.name
+        self.name = 'supcon_' + self.name
 
         self.transform1 = transforms.Compose([
             transforms.RandomAffine(0, translate=(0.05, 0.05)),
@@ -438,7 +420,7 @@ class SupCon_State_abstractor(State_abstractor):
 
     def train_embedding(self, num_training_steps=10000, visualize=True):
         self.embedding.train()
-        criterion = SupConLoss(temperature=0.1)
+        criterion = SupConLoss(temperature=0.1, device=self.device)
         optimizer = torch.optim.Adam(self.embedding.parameters(), lr=1e-3, weight_decay=1e-5)
 
         self.dataset, self.valid_dataset = load_dataset(goal_str=self.goal_str)
@@ -466,7 +448,6 @@ class SupCon_State_abstractor(State_abstractor):
 
             obs_cat = torch.cat([obs1, obs2], dim=0)
             hand_obs_cat = torch.cat([hand_obs1, hand_obs2], dim=0)
-
             feature = self.embedding([obs_cat, hand_obs_cat])
             f1, f2 = torch.split(feature, [bsz, bsz], dim=0)
             feature = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
@@ -536,8 +517,6 @@ class SupCon_State_abstractor(State_abstractor):
         else:
             print("Best classifier not found")
 
-        self.find_mean_cov()         
-    
     def validate(self):
         self.embedding.eval()
         self.cls.eval()
@@ -580,53 +559,35 @@ class SupCon_State_abstractor(State_abstractor):
             d = np.array(d)
             d = np.quantile(d, 0.95)
             out[i] = [mu, pinv_sigma, d*1.25]
+        return out
 
+    def test(self, out, dataset=None, outlier=False):
         true_label = []
         pred_label = []
-        for i in range(self.valid_dataset.size):
-            obs = torch.from_numpy(self.valid_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            hand_obs = torch.from_numpy(self.valid_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            true_label.append(self.valid_dataset['ABS_STATE_INDEX'][i])
-            with torch.no_grad():
-                f = self.embedding.encoder([obs, hand_obs])
-            fe = f.detach().cpu().numpy().reshape(256)
+        if outlier:
+            dataset = load_dataset(goal_str=self.goal_str, eval=True)
+        for i in range(dataset.size):
+            if outlier:
+                true_label.append(dataset['TRUE_ABS_STATE_INDEX'][i])
+            else:
+                true_label.append(dataset['ABS_STATE_INDEX'][i])
+            obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            hand_obs = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            feature = self.embedding.encoder([obs, hand_obs])
+            fe = feature.detach().cpu().numpy().reshape(256)
             d = []
             for j in range(self.num_classes):
                 mu, inv_sigma, _ = out[j]
-                d.append(self.compute_mahalanobis(mu, inv_sigma, fe))
+                dist = self.compute_mahalanobis(mu, inv_sigma, fe)
+                d.append(dist)
             d_min = min(d)
             index_d = d.index(d_min)
             if d_min > out[index_d][2]:
                 pred_label.append(self.num_classes)
             else:
-                l = self.cls(f).argmax().detach().cpu().numpy()
-                pred_label.append(l)
-        acc = accuracy_score(true_label, pred_label)
-        print(f'Accuracy: {acc}')
-
-        outlier_dataset = load_dataset(goal_str=self.goal_str, eval=True)
-        pred_label = []
-        fp = 0
-        for i in range(outlier_dataset.size):
-            obs = torch.from_numpy(outlier_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            hand_obs = torch.from_numpy(outlier_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            with torch.no_grad():
-                f = self.embedding.encoder([obs, hand_obs])
-            fe = f.detach().cpu().numpy().reshape(256)
-            d = []
-            for j in range(self.num_classes):
-                mu, inv_sigma, _ = out[j]
-                d.append(self.compute_mahalanobis(mu, inv_sigma, fe))
-            d_min = min(d)
-            index_d = d.index(d_min)
-            if d_min > out[index_d][2]:
-                pred_label.append(self.num_classes)
-            else:
-                l = self.cls(f).argmax().detach().cpu().numpy()
-                if l == outlier_dataset['TRUE_ABS_STATE_INDEX'][i]:
-                    fp += 1
-        print(f'Outlier: {len(pred_label)}')
-        print(f'Correct false positive: {fp}')
+                pred_label.append(self.cls(feature).argmax().detach().cpu().numpy().reshape(1)[0])
+        # print classification report
+        print(classification_report(true_label, pred_label, digits=4))
 
 if __name__ == '__main__':
     # Build argument parser
@@ -634,14 +595,20 @@ if __name__ == '__main__':
     parser.add_argument('--goal_str', type=str, default='house_building_4', help='Goal string')
     parser.add_argument('--use_equivariant', type=bool, default=False, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda:2', help='Device to use')
-    parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
+    parser.add_argument('--supcon', type=bool, default=True, help='Use supcon model')
     parser.add_argument('--visualize', type=bool, default=False, help='Visualize training')
     args = parser.parse_args()
 
     if args.supcon:
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_embedding(num_training_steps=1500, visualize=args)
+        model.train_embedding(num_training_steps=1500, visualize=args.visualize)
         model.train_linear_classifier(num_training_steps=1500)
+        out = model.find_mean_cov()
+        model.test(out=out, dataset=model.valid_dataset)
+        model.test(out=out, outlier=True)
     else:
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_state_abstractor(num_training_steps=15000, visualize=args.visualize)
+        model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
+        out = model.find_mean_cov()
+        model.test(out=out, dataset=model.valid_dataset)
+        model.test(out=out, outlier=True)
