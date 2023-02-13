@@ -282,16 +282,9 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_episodes=100, debug
     transitions.reverse()
 
     true_index = [i for i in range(len(transitions)) if transitions[i][3] is True]
-    # import ipdb; ipdb.set_trace()
-    # print(len(true_index))
-    print(true_index)
     perfect_index = [true_index[i] for i in range(len(true_index)) if (true_index[i] == num_classes-2) or (true_index[i]-true_index[i-1] == num_classes-1)]
-    # print(len(perfect_index))
-    print(perfect_index)
-    # exit()
     for i in perfect_index:
         for j in range(num_classes-1, 0, -1):
-        
             if debug:
                 states.append(transitions[i-j+1][0][0])
                 obss.append(transitions[i-j+1][0][2])
@@ -335,10 +328,8 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_episodes=100, debug
         "ABS_STATE_INDEX": np.int32,
     })
     print("Number collected data sample: ", dataset.size)
-
     dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/{env}.h5")
-
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_episodes=100, debug=False)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_episodes=1250, debug=True)
