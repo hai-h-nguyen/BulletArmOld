@@ -301,7 +301,7 @@ class State_abstractor():
 
     def find_mean_cov(self):
         self.classifier.eval()
-        out = {}
+        mu_cov = {}
         for i in range(self.num_classes):
             features = []
             idx = np.where(self.dataset['ABS_STATE_INDEX'] == i)[0]
@@ -319,10 +319,22 @@ class State_abstractor():
                 d.append(self.compute_mahalanobis(mu, pinv_sigma, feature))
             d = np.array(d)
             d = np.quantile(d, 0.95)
-            out[i] = [mu, pinv_sigma, d*1.25]
-        return out
+            mu_cov[i] = [mu, pinv_sigma, d*1.25]
+        return mu_cov
 
-    def test(self, out, dataset=None, outlier=False):
+    def check_outlier(self, x, mu_cov):
+        d = []
+        x = x.detach().cpu().numpy().reshape(256)
+        for i in range(self.num_classes):
+            mu, pinv_sigma, _ = mu_cov[i]
+            d.append(self.compute_mahalanobis(mu, pinv_sigma, x))
+        d_min = min(d)
+        index_d = d.index(d_min)
+        if d_min > mu_cov[index_d][2]:
+            return True
+        return False
+
+    def test(self, mean_cov, dataset=None, outlier=False):
         true_label = []
         pred_label = []
         if outlier:
@@ -334,18 +346,13 @@ class State_abstractor():
                 true_label.append(dataset['ABS_STATE_INDEX'][i])
             obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             hand_obs = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            feature = self.classifier.embedding([obs, hand_obs]).detach().cpu().numpy().reshape(256)
-            d = []
-            for j in range(self.num_classes):
-                mu, inv_sigma, _ = out[j]
-                dist = self.compute_mahalanobis(mu, inv_sigma, feature)
-                d.append(dist)
-            d_min = min(d)
-            index_d = d.index(d_min)
-            if d_min > out[index_d][2]:
+            feature = self.classifier.embedding([obs, hand_obs])
+            check_outlier = self.check_outlier(feature, mean_cov)
+            if check_outlier:
                 pred_label.append(self.num_classes)
             else:
-                pred_label.append(self.classifier.get_prediction(x=[obs, hand_obs], hard=True).detach().cpu().numpy().reshape(1)[0])
+                import ipdb; ipdb.set_trace()
+                pred_label.append(self.classifier.fc(feature).argmax().item())
         # print classification report
         print(classification_report(true_label, pred_label, digits=4))
         
@@ -539,7 +546,7 @@ class SupCon_State_abstractor(State_abstractor):
         self.embedding.eval()
         self.cls.eval()
 
-        out = {}
+        mu_cov = {}
         for i in range(self.num_classes):
             features = []
             idx = np.where(self.dataset['ABS_STATE_INDEX'] == i)[0]
@@ -559,10 +566,10 @@ class SupCon_State_abstractor(State_abstractor):
                 d.append(self.compute_mahalanobis(mu, pinv_sigma, f))
             d = np.array(d)
             d = np.quantile(d, 0.95)
-            out[i] = [mu, pinv_sigma, d*1.25]
+            mu_cov[i] = [mu, pinv_sigma, d*1.25]
         return out
 
-    def test(self, out, dataset=None, outlier=False):
+    def test(self, mean_cov, dataset=None, outlier=False):
         true_label = []
         pred_label = []
         if outlier:
@@ -575,15 +582,8 @@ class SupCon_State_abstractor(State_abstractor):
             obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             hand_obs = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             feature = self.embedding.encoder([obs, hand_obs])
-            fe = feature.detach().cpu().numpy().reshape(256)
-            d = []
-            for j in range(self.num_classes):
-                mu, inv_sigma, _ = out[j]
-                dist = self.compute_mahalanobis(mu, inv_sigma, fe)
-                d.append(dist)
-            d_min = min(d)
-            index_d = d.index(d_min)
-            if d_min > out[index_d][2]:
+            check_outlier = self.check_outlier(feature, mean_cov)
+            if check_outlier:
                 pred_label.append(self.num_classes)
             else:
                 pred_label.append(self.cls(feature).argmax().detach().cpu().numpy().reshape(1)[0])
@@ -604,16 +604,16 @@ if __name__ == '__main__':
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_embedding(num_training_steps=10000, visualize=args.visualize)
         model.train_linear_classifier(num_training_steps=10000)
-        out = model.find_mean_cov()
-        model.test(out=out, dataset=model.valid_dataset)
-        model.test(out=out, outlier=True)
+        mean_cov = model.find_mean_cov()
+        model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
+        model.test(mean_cov=mean_cov, outlier=True)
     else:
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
-        out = model.find_mean_cov()
+        mean_cov = model.find_mean_cov()
         # save out
         with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}.pkl', 'wb') as f:
-            pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
-        model.test(out=out, dataset=model.valid_dataset)
-        model.test(out=out, outlier=True)
+            pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)
+        model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
+        model.test(mean_cov=mean_cov, outlier=True)
 
