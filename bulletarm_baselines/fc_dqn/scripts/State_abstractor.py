@@ -9,6 +9,7 @@ from bulletarm_baselines.fc_dqn.utils.dataset import ArrayDataset, count_objects
 from bulletarm_baselines.fc_dqn.utils.result import Result
 from bulletarm_baselines.fc_dqn.utils.SupConlosses import SupConLoss
 
+import pickle
 import argparse
 import os
 import torch
@@ -62,7 +63,7 @@ class State_abstractor():
         self.goal_str = goal_str
         self.use_equivariant = use_equivariant
         self.device = device
-        self.batch_size = 128
+        self.batch_size = 32
 
         if self.goal_str == 'block_stacking':
             num_objects = 4
@@ -92,7 +93,9 @@ class State_abstractor():
             print('----------\t Equivaraint Model \t -----------')
             print('='*50)
             conv_obs = EquiObs(num_subgroups=4)
-            conv_hand_obs = EquiHandObs(num_subgroups=4)
+            # conv_hand_obs = EquiHandObs(num_subgroups=4)
+            conv_hand_obs = CNNHandObsEncoder()
+
         else:    
             conv_obs = CNNOBSEncoder()
             conv_hand_obs = CNNHandObsEncoder()
@@ -172,9 +175,7 @@ class State_abstractor():
         self.classifier.eval()
         final_valid_loss = self.validate(dataset=self.valid_dataset)
         print(f"Best Valid Loss: {final_valid_loss[0]} and Best Valid Accuracy: {final_valid_loss[1]}")
-        # torch.save(self.classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt")   
-
-        self.find_mean_cov()
+        torch.save(self.classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt")   
 
         if visualize:
             self.plot_result(result=result)
@@ -214,7 +215,7 @@ class State_abstractor():
 
         # Plot Loss and Acc curve
         create_folder('Loss_and_Acc')
-        plt.figure(figsize=(20, 20))
+        plt.figure(figsize=(10, 10))
         x = np.arange(0, valid_losses.shape[0])
         x *= 500
 
@@ -259,7 +260,7 @@ class State_abstractor():
         df["dim_1"] = tsne_train[:, 0]
         df["dim_2"] = tsne_train[:, 1]
         plt.figure(figsize=(20, 20))
-        sns.scatterplot(x="dim_1", y="dim_2", hue=df.label.tolist(), palette=sns.color_palette("hls", self.num_classes), data=df, s=10).set(title=f"TSNE of {self.name}")
+        sns.scatterplot(x="dim_1", y="dim_2", hue=df.label.tolist(), palette=sns.color_palette("hls", self.num_classes), data=df, s=15).set(title=f"TSNE of {self.name}")
         plt.savefig(f'TSNE/Training_{self.name}_TSNE_{state}.png')
         plt.close()
 
@@ -291,7 +292,7 @@ class State_abstractor():
         df["dim_2"] = tsne_val[:, 1]
 
         plt.figure(figsize=(20, 20))
-        sns.scatterplot(x="dim_1", y="dim_2", hue=df.label.tolist(), palette=sns.color_palette("hls", self.num_classes+1), data=df, s=10).set(title=f"TSNE of {self.name}")
+        sns.scatterplot(x="dim_1", y="dim_2", hue=df.label.tolist(), palette=sns.color_palette("hls", self.num_classes+1), data=df, s=15).set(title=f"TSNE of {self.name}")
         plt.savefig(f'TSNE/Validation_{self.name}_TSNE_{state}.png')
         plt.close()
 
@@ -465,7 +466,7 @@ class SupCon_State_abstractor(State_abstractor):
             print("Best embedding not found")
         self.embedding.eval()
         if visualize:
-            plt.figure(figsize=(20, 20))
+            plt.figure(figsize=(10, 10))
             plt.plot(losses)
             plt.xlabel('Training steps')
             plt.ylabel('Loss')
@@ -593,16 +594,16 @@ if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_str', type=str, default='house_building_4', help='Goal string')
-    parser.add_argument('--use_equivariant', type=bool, default=False, help='Use equivariant model')
+    parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda:2', help='Device to use')
-    parser.add_argument('--supcon', type=bool, default=True, help='Use supcon model')
+    parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
     parser.add_argument('--visualize', type=bool, default=False, help='Visualize training')
     args = parser.parse_args()
 
     if args.supcon:
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_embedding(num_training_steps=1500, visualize=args.visualize)
-        model.train_linear_classifier(num_training_steps=1500)
+        model.train_embedding(num_training_steps=10000, visualize=args.visualize)
+        model.train_linear_classifier(num_training_steps=10000)
         out = model.find_mean_cov()
         model.test(out=out, dataset=model.valid_dataset)
         model.test(out=out, outlier=True)
@@ -610,5 +611,9 @@ if __name__ == '__main__':
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
         out = model.find_mean_cov()
+        # save out
+        with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}.pkl', 'wb') as f:
+            pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
         model.test(out=out, dataset=model.valid_dataset)
         model.test(out=out, outlier=True)
+

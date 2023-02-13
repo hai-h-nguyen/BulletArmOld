@@ -10,8 +10,8 @@ class EquiHandObs(torch.nn.Module):
         self.filter_counts = filter_counts
         self.dim_out = dim_out
 
-        # self.r2_act = gspaces.flipRot2dOnR2(N=num_subgroups)
-        self.r2_act = gspaces.rot2dOnR2(N=num_subgroups)
+        self.r2_act = gspaces.flipRot2dOnR2(N=num_subgroups)
+        # self.r2_act = gspaces.rot2dOnR2(N=num_subgroups)
 
         self.input_type = nn.FieldType(self.r2_act, [self.r2_act.trivial_repr])
 
