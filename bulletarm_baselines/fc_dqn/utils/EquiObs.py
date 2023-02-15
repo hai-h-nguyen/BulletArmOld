@@ -1,7 +1,6 @@
 import torch
 from escnn import gspaces
 from escnn import nn
-import numpy as np
 
 class EquiObs(torch.nn.Module):
     def __init__(self, num_subgroups, filter_counts=[16, 32, 64, 128, 256, 128], dim_out=128):

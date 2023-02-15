@@ -5,13 +5,12 @@ from torch.nn import functional as F
 
 class SoftmaxClassifier(nn.Module):
 
-    def __init__(self, encoder, num_classes, embedding):
+    def __init__(self, encoder, num_classes):
 
         super(SoftmaxClassifier, self).__init__()
 
         self.encoder = encoder
         self.num_classes = num_classes
-        self.embedding = embedding
 
         self.create_fc_()
         self.loss = nn.CrossEntropyLoss()

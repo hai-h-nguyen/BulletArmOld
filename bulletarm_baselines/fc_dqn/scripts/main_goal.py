@@ -79,13 +79,24 @@ def saveModelAndInfo(logger, agent):
     logger.exportData()
     agent.saveModel(os.path.join(logger.models_dir, 'snapshot'))
 
-def get_cls(classifier, obs, inhand):
+def get_cls(state_abstractor, obs, inhand):
+    state_abstractor.classifier.eval()
+    pred = []
     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
-    res = classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
+    features = state_abstractor.classifier.encoder([obs,inhand])
+    for i in range(features.shape[0]):
+        feature = features[i]
+        if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
+            pred.append(state_abstractor.num_classes)
+        else:
+            pred.append(state_abstractor.classifier.fc(feature).argmax().item())
+    import ipdb; ipdb.set_trace()
+    pred = torch.tensor(pred).to(device)
+    res = state_abstractor.classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
     return torch.argmax(res,dim=1)
 
-def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classifier=None,num_steps=0,debug = False,render=False):
+def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,state_abstractor=None,num_steps=0,debug = False,render=False):
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     states, in_hands, obs = envs.reset()
@@ -103,7 +114,7 @@ def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,classif
     cnt = 0
     while evaled < num_eval_episodes:
         true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
-        pred_abs_states = get_cls(classifier, obs, in_hands)
+        pred_abs_states = get_cls(state_abstractor, obs, in_hands)
         if (use_classifier):
             abs_states = pred_abs_states 
         else:
@@ -222,9 +233,8 @@ def train():
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, equal_param=False, device=device)
-    classifier = classifier.load_classifier()
-    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    state_abstractor = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    state_abstractor.load_classifier()
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
     # load classifier
@@ -269,7 +279,7 @@ def train():
     #------------------------------------- expert transition ----------------------------------------#    
     if planner_episode > 0 and not load_sub:
         if fill_buffer_deconstruct:
-            train_fillDeconstructUsingRunner(agent, replay_buffer,classifier)
+            train_fillDeconstructUsingRunner(agent, replay_buffer,state_abstractor.classifier)
     #------------------------------------- pretrainning with expert ----------------------------------------#    
     #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:
@@ -303,7 +313,7 @@ def train():
             eps = exploration.value(logger.num_eps)
         is_expert = 0
         true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
-        pred_abs_states = get_cls(classifier,obs,in_hands)
+        pred_abs_states = get_cls(state_abstractor,obs,in_hands)
         if (use_classifier):
             abs_states = pred_abs_states 
         else:
@@ -366,7 +376,7 @@ def train():
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
         true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
-        pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
+        pred_abs_states_next = get_cls(state_abstractor, obs_, in_hands_)
         if (use_classifier):
             abs_states_next = pred_abs_states_next 
         else:
@@ -442,7 +452,7 @@ def train():
             if eval_thread is not None:
                 eval_thread.join()
             eval_agent.copyNetworksFrom(agent)
-            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,num_eval_episodes,logger, wandb_logs,classifier,logger.num_training_steps,False))
+            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,num_eval_episodes,logger, wandb_logs,state_abstractor,logger.num_training_steps,False))
             eval_thread.start()
 
         if logger.num_steps % (num_processes * save_freq) == 0:
