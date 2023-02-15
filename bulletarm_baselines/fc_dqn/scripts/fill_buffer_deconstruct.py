@@ -332,4 +332,4 @@ def collectData4ClassifierUsingDeconstruct(env='2b2b1r', num_episodes=100, debug
     print("DONE!!!")
 
 if __name__ == '__main__':
-    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_episodes=1250, debug=True)
+    collectData4ClassifierUsingDeconstruct(env='house_building_4', num_episodes=1250, debug=False)

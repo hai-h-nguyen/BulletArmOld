@@ -31,14 +31,11 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.2, eval=False, outlier=False):
+def load_dataset(goal_str, validation_fraction=0.2, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
-        if outlier:
-            dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/fail_data_{goal_str}_goal_25_dqn_normal.h5")
-        else:
-            dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/fail_data_{goal_str}_goal_25_dqn_normal.h5")
+        dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/full_data_{goal_str}_goal_5_dqn_normal.h5")
         num_samples = dataset.size
         print(f"Total number samples: {num_samples}")
         abs_index = dataset["TRUE_ABS_STATE_INDEX"]
@@ -268,19 +265,19 @@ class State_abstractor():
 
         out_val = []
         label_val = []
-        for i in range(self.valid_dataset.size):
-            obs = torch.from_numpy(self.valid_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            hand_obs = torch.from_numpy(self.valid_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
-            label_val.append(self.valid_dataset['ABS_STATE_INDEX'][i])
+        # for i in range(self.valid_dataset.size):
+            # obs = torch.from_numpy(self.valid_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            # hand_obs = torch.from_numpy(self.valid_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            # out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
+            # label_val.append(self.valid_dataset['ABS_STATE_INDEX'][i])
 
-        load_outlier = load_dataset(goal_str=self.goal_str, eval=True, outlier=True)
+        load_outlier = load_dataset(goal_str=self.goal_str, eval=True)
         for i in range(load_outlier.size):
-            if load_outlier['TRUE_ABS_STATE_INDEX'][i] == self.num_classes:
-                obs = torch.from_numpy(load_outlier['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-                hand_obs = torch.from_numpy(load_outlier['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-                out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
-                label_val.append(load_outlier['TRUE_ABS_STATE_INDEX'][i])
+            # if load_outlier['TRUE_ABS_STATE_INDEX'][i] == self.num_classes:
+            obs = torch.from_numpy(load_outlier['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            hand_obs = torch.from_numpy(load_outlier['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
+            out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
+            label_val.append(load_outlier['TRUE_ABS_STATE_INDEX'][i])
         
         out_val = np.array(out_val)
         label_val = np.array(label_val)
@@ -320,7 +317,7 @@ class State_abstractor():
             for feature in feature_list:
                 d.append(self.compute_mahalanobis(mu, pinv_sigma, feature))
             d = np.array(d)
-            d = np.quantile(d, 0.98)
+            d = np.quantile(d, 0.95)
             mu_cov[i] = [mu, pinv_sigma, d*scale]
         return mu_cov
 
@@ -336,16 +333,12 @@ class State_abstractor():
             return True
         return False
 
-    def test(self, mean_cov, dataset=None, outlier=False, in_dis=False):
+    def test(self, mean_cov, dataset=None, outlier=False):
         self.classifier.eval()
         true_label = []
         pred_label = []
         if outlier:
-            dataset = load_dataset(goal_str=self.goal_str, eval=True, outlier=True)
-        if in_dis:
             dataset = load_dataset(goal_str=self.goal_str, eval=True)
-        # if in_dis:
-
         for i in range(dataset.size):
             if outlier:
                 true_label.append(dataset['TRUE_ABS_STATE_INDEX'][i])
@@ -602,7 +595,7 @@ class SupCon_State_abstractor(State_abstractor):
 if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
-    parser.add_argument('--goal_str', type=str, default='house_building_2', help='Goal string')
+    parser.add_argument('--goal_str', type=str, default='1l2b2r', help='Goal string')
     parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
@@ -622,12 +615,15 @@ if __name__ == '__main__':
     else:
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
-        for i in [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5]:
+        for i in [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]:
+            print('='*50)
+            print(f'Using scale {i}')
+            print('='*50)
             mean_cov = model.find_mean_cov(scale=i)
             # save mean_cov
             with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}_{i}.pkl', 'wb') as f:
                 pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)
             model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
             model.test(mean_cov=mean_cov, outlier=True)
-            model.test(mean_cov=mean_cov, in_dis=True)
+            # model.test(mean_cov=mean_cov, in_dis=True)
 
