@@ -31,7 +31,7 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.6, eval=False):
+def load_dataset(goal_str, validation_fraction=0.2, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
@@ -612,7 +612,7 @@ if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_str', type=str, default='house_building_4', help='Goal string')
-    parser.add_argument('--use_equivariant', type=bool, default=False, help='Use equivariant model')
+    parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
     parser.add_argument('--visualize', type=bool, default=False, help='Visualize training')
@@ -620,32 +620,12 @@ if __name__ == '__main__':
 
     if args.supcon:
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_embedding(num_training_steps=10000, visualize=args.visualize)
-        model.train_linear_classifier(num_training_steps=10000)
-        for i in [1.25, 1.5, 1.75]:
-            print('='*50)
-            print(f'Using scale {i}')
-            print('='*50)
-            mean_cov = model.find_mean_cov(scale=i)
-            # save mean_cov
-            with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}_{i}.pkl', 'wb') as f:
-                pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)
-            model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
-            model.test(mean_cov=mean_cov, outlier=True)
+        model.train_embedding(num_training_steps=12000, visualize=args.visualize)
+        model.train_linear_classifier(num_training_steps=12000)
+        model.test(mean_cov=None, dataset=model.valid_dataset)
     else:
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
-        # for i in [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]:
-            # print('='*50)
-            # print(f'Using scale {i}')
-            # print('='*50)
-            # mean_cov = model.find_mean_cov1(scale=i)
-            # save mean_cov
-            # with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}_{i}.pkl', 'wb') as f:
-                # pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)prohibitive
-            # model.test1(mean_cov=mean_cov, dataset=model.valid_dataset)
-            # model.test1(mean_cov=mean_cov, outlier=True)
-            # model.test(mean_cov=mean_cov, in_dis=True)
+        model.train_state_abstractor(num_training_steps=12000, visualize=args.visualize)
         model.test(mean_cov=None, dataset=model.valid_dataset)
-        model.test(mean_cov=None, outlier=True)
+        # model.test(mean_cov=None, outlier=True)
 
