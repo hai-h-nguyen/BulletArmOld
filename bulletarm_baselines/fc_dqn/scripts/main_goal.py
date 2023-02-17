@@ -32,7 +32,7 @@ from bulletarm_baselines.fc_dqn.utils.torch_utils import augmentBuffer, augmentB
 from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import train_fillDeconstructUsingRunner
 
 # from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
-from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
+from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor, SupCon_State_abstractor
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
 
 
@@ -87,14 +87,45 @@ def get_cls(state_abstractor, obs, inhand):
     features = state_abstractor.classifier.encoder([obs,inhand])
     for i in range(features.shape[0]):
         feature = features[i]
-        if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
-            pred.append(state_abstractor.num_classes)
-        else:
-            pred.append(state_abstractor.classifier.fc(feature).argmax().item())
-    import ipdb; ipdb.set_trace()
+        # if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
+        #     pred.append(state_abstractor.num_classes)
+        # else:
+        pred.append(state_abstractor.classifier.fc(feature).argmax().item())
     pred = torch.tensor(pred).to(device)
-    res = state_abstractor.classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
-    return torch.argmax(res,dim=1)
+    return pred
+
+# def get_cls(state_abstractor, obs, inhand):
+#     state_abstractor.classifier.eval()
+#     pred = []
+#     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     features = state_abstractor.classifier.conv_encoder([obs,inhand])
+#     for i in range(features.shape[0]):
+#         feature = features[i]
+#         o = obs[i]
+#         ih = inhand[i]
+#         if state_abstractor.check_outlier1(feature, state_abstractor.mu_cov):
+#             pred.append(state_abstractor.num_classes)
+#         else:
+#             pred.append(state_abstractor.classifier([o.unsqueeze(0), ih.unsqueeze(0)]).argmax().item())
+#     pred = torch.tensor(pred).to(device)
+#     return pred
+
+# def get_cls(state_abstractor, obs, inhand):
+#     state_abstractor.embedding.eval()
+#     state_abstractor.cls.eval()
+#     pred = []
+#     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     features = state_abstractor.embedding.encoder([obs,inhand])
+#     for i in range(features.shape[0]):
+#         feature = features[i]
+#         if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
+#             pred.append(state_abstractor.num_classes)
+#         else:
+#             pred.append(state_abstractor.cls(feature.unsqueeze(0)).argmax().item())
+#     pred = torch.tensor(pred).to(device)
+#     return pred
 
 def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,state_abstractor=None,num_steps=0,debug = False,render=False):
     num_objects = envs.getNumObj()
@@ -212,8 +243,9 @@ def train():
     print(f'trainning for {max_train_step} step on {env}')
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
+        wandb.login(key='ed44c646a708f75a7fe4e39aee3844f8bfe44858')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='icra2023')
+        group=wandb_group, name=wandb_seed, entity='longdinh')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -234,6 +266,7 @@ def train():
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
     state_abstractor = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    # state_abstractor = SupCon_State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
     state_abstractor.load_classifier()
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)
@@ -280,6 +313,7 @@ def train():
     if planner_episode > 0 and not load_sub:
         if fill_buffer_deconstruct:
             train_fillDeconstructUsingRunner(agent, replay_buffer,state_abstractor.classifier)
+
     #------------------------------------- pretrainning with expert ----------------------------------------#    
     #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:

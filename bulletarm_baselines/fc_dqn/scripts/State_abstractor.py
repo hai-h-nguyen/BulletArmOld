@@ -31,11 +31,11 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.2, eval=False):
+def load_dataset(goal_str, validation_fraction=0.6, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
-        dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/full_data_{goal_str}_goal_5_dqn_normal.h5")
+        dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/full_data_{goal_str}_goal_25_dqn_normal.h5")
         num_samples = dataset.size
         print(f"Total number samples: {num_samples}")
         abs_index = dataset["TRUE_ABS_STATE_INDEX"]
@@ -117,7 +117,7 @@ class State_abstractor():
 
         encoder.output_size = 128
 
-        self.classifier = SoftmaxClassifier(encoder, self.num_classes)
+        self.classifier = SoftmaxClassifier(encoder, self.num_classes, conv_encoder)
         self.classifier.to(self.device)
         return self.classifier
 
@@ -176,9 +176,10 @@ class State_abstractor():
         torch.save(self.classifier.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt")   
         print('Classifier saved.')
         self.classifier.eval()
-        self.plot_result(result=result)
+        self.plot_result(result)
         if visualize:
-            self.plot_TSNE(encoder=self.classifier.encoder)
+            self.plot_TSNE(encoder=self.classifier.conv_encoder)
+
 
     def validate(self, dataset):
         self.classifier.eval()
@@ -245,7 +246,7 @@ class State_abstractor():
         for i in range(self.dataset.size):
             obs = torch.from_numpy(self.dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             hand_obs = torch.from_numpy(self.dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            out_train.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
+            out_train.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(256))
             label_train.append(self.dataset['ABS_STATE_INDEX'][i])
 
         out_train = np.array(out_train)
@@ -265,18 +266,12 @@ class State_abstractor():
 
         out_val = []
         label_val = []
-        # for i in range(self.valid_dataset.size):
-            # obs = torch.from_numpy(self.valid_dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            # hand_obs = torch.from_numpy(self.valid_dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            # out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
-            # label_val.append(self.valid_dataset['ABS_STATE_INDEX'][i])
 
         load_outlier = load_dataset(goal_str=self.goal_str, eval=True)
         for i in range(load_outlier.size):
-            # if load_outlier['TRUE_ABS_STATE_INDEX'][i] == self.num_classes:
             obs = torch.from_numpy(load_outlier['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             hand_obs = torch.from_numpy(load_outlier['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
+            out_val.append(encoder([obs, hand_obs]).detach().cpu().numpy().reshape(256))
             label_val.append(load_outlier['TRUE_ABS_STATE_INDEX'][i])
         
         out_val = np.array(out_val)
@@ -294,7 +289,7 @@ class State_abstractor():
         sns.scatterplot(x="dim_1", y="dim_2", hue=df.label.tolist(), palette=sns.color_palette("hls", self.num_classes+1), data=df, s=20).set(title=f"TSNE of {self.name}")
         plt.savefig(f'TSNE/Validation_{self.name}_TSNE.png')
         plt.close()
-
+    
     def compute_mahalanobis(self, mu, inv_sigma, x):
         return np.sqrt(np.dot(np.dot((x - mu).T, inv_sigma), (x - mu)))
 
@@ -307,7 +302,7 @@ class State_abstractor():
             for j in idx:
                 obs = torch.from_numpy(self.dataset['OBS'][j][np.newaxis, np.newaxis, :, :]).to(self.device)
                 hand_obs = torch.from_numpy(self.dataset['HAND_OBS'][j][np.newaxis, np.newaxis, :, :]).to(self.device)
-                features.append(self.classifier.encoder([obs, hand_obs]).detach().cpu().numpy().reshape(128))
+                features.append(self.classifier.conv_encoder([obs, hand_obs]).detach().cpu().numpy().reshape(256))
             feature_list = cp.deepcopy(features)
             features = np.array(features)
             mu = np.mean(features, axis=0)
@@ -323,7 +318,7 @@ class State_abstractor():
 
     def check_outlier(self, x, mu_cov):
         d = []
-        x = x.detach().cpu().numpy().reshape(128)
+        x = x.detach().cpu().numpy().reshape(256)
         for i in range(self.num_classes):
             mu, pinv_sigma, _ = mu_cov[i]
             d.append(self.compute_mahalanobis(mu, pinv_sigma, x))
@@ -346,15 +341,18 @@ class State_abstractor():
                 true_label.append(dataset['ABS_STATE_INDEX'][i])
             obs = torch.from_numpy(dataset['OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
             hand_obs = torch.from_numpy(dataset['HAND_OBS'][i][np.newaxis, np.newaxis, :, :]).to(self.device)
-            feature = self.classifier.encoder([obs, hand_obs])
-            check_outlier = self.check_outlier(feature, mean_cov)
-            if check_outlier:
-                pred_label.append(self.num_classes)
+            if mean_cov is None:
+                pred_label.append(self.classifier([obs, hand_obs]).argmax().item())
             else:
-                pred_label.append(self.classifier.fc(feature).argmax().item())
+                feature = self.classifier.conv_encoder([obs, hand_obs])
+                check_outlier = self.check_outlier(feature, mean_cov)
+                if check_outlier:
+                    pred_label.append(self.num_classes)
+                else:
+                    pred_label.append(self.classifier([obs, hand_obs]).argmax().item())
         # print classification report
         print(classification_report(true_label, pred_label, digits=4))
-        
+
     def load_classifier(self):
         self.classifier.train()
         self.classifier.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pt"))
@@ -362,15 +360,15 @@ class State_abstractor():
         print(f'------\t Successfully load classifier {self.name}\t-----------')
 
         # load pkl file
-        with open(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pkl", 'rb') as f:
-            self.mu_cov = pickle.load(f)
+        # with open(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_1.5.pkl", 'rb') as f:
+        #     self.mu_cov = pickle.load(f)
 
 class SupCon_State_abstractor(State_abstractor):
     def __init__(self, goal_str=None, use_equivariant=None, device=None):
         self.goal_str = goal_str
         self.use_equivariant = use_equivariant
         self.device = device
-        self.batch_size = 128
+        self.batch_size = 64
 
         if self.goal_str == 'block_stacking':
             num_objects = 4
@@ -392,18 +390,10 @@ class SupCon_State_abstractor(State_abstractor):
             self.name = self.goal_str
         self.name = 'supcon_' + self.name
 
-        self.transform1 = transforms.Compose([
-            transforms.RandomAffine(0, translate=(0.05, 0.05)),
-            transforms.RandomRotation(180),
-            transforms.GaussianBlur((5, 9), (0.1, 2.0)),
-        ])
-
-        self.transform2 = transforms.Compose([
-            transforms.RandomAffine(0, translate=(0.1, 0.1)),
-            transforms.GaussianBlur((5, 9), (0.1, 2.0)),
-        ])
-
         self.build_embedding()
+        self.cls = LinearClassifier(input_dim=self.embedding.encoder.output_size, num_classes=self.num_classes)
+        self.cls.to(self.device)
+        self.cls.train()
 
     def build_embedding(self):
         if self.use_equivariant:
@@ -411,10 +401,9 @@ class SupCon_State_abstractor(State_abstractor):
             print('----------\t Equivaraint Model \t -----------')
             print('='*50)
             conv_obs = EquiObs(num_subgroups=4)
-            conv_hand_obs = EquiHandObs(num_subgroups=4)
         else:    
             conv_obs = CNNOBSEncoder()
-            conv_hand_obs = CNNHandObsEncoder()
+        conv_hand_obs = CNNHandObsEncoder()
 
         conv_obs_view = View([128])
         conv_obs_encoder = nn.Sequential(conv_obs, conv_obs_view)
@@ -435,6 +424,17 @@ class SupCon_State_abstractor(State_abstractor):
 
         self.dataset, self.valid_dataset = load_dataset(goal_str=self.goal_str)
         self.epoch_size = len(self.dataset['OBS']) // self.batch_size
+
+        self.transform1 = transforms.Compose([
+            transforms.RandomAffine(0, translate=(0.05, 0.05)),
+            transforms.RandomRotation(180),
+            transforms.GaussianBlur((5, 9), (0.1, 2.0)),
+        ])
+
+        self.transform2 = transforms.Compose([
+            transforms.RandomAffine(0, translate=(0.1, 0.1)),
+            transforms.GaussianBlur((5, 9), (0.1, 2.0)),
+        ])
 
         best_loss = np.inf
         best_embedding = None
@@ -473,6 +473,8 @@ class SupCon_State_abstractor(State_abstractor):
             self.embedding.load_state_dict(best_embedding)
         else:
             print("Best embedding not found")
+        # save model
+        torch.save(self.embedding.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_embedding.pt")
         self.embedding.eval()
         if visualize:
             plt.figure(figsize=(10, 10))
@@ -483,13 +485,10 @@ class SupCon_State_abstractor(State_abstractor):
             plt.savefig(f'Loss_and_Acc/{self.name}.png')
             plt.close()
 
-            self.plot_TSNE(embedding=self.embedding.encoder)
+            self.plot_TSNE(encoder=self.embedding.encoder)
 
     def train_linear_classifier(self, num_training_steps=10000):
         self.embedding.eval()
-        self.cls = LinearClassifier(input_dim=self.embedding.encoder.output_size, num_classes=self.num_classes)
-        self.cls.to(self.device)
-        self.cls.train()
 
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(self.cls.parameters(), lr=1e-3)
@@ -526,6 +525,9 @@ class SupCon_State_abstractor(State_abstractor):
             self.cls.load_state_dict(best_cls)
         else:
             print("Best classifier not found")
+        # save model
+        torch.save(self.cls.state_dict(), f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_cls.pt")
+        self.cls.eval()
 
     def validate(self):
         self.embedding.eval()
@@ -544,7 +546,7 @@ class SupCon_State_abstractor(State_abstractor):
         self.cls.train()
         return result.mean("TOTAL_LOSS"), result.mean("ACCURACY")
 
-    def find_mean_cov(self):
+    def find_mean_cov(self, scale=1.0):
         self.embedding.eval()
         self.cls.eval()
 
@@ -568,7 +570,7 @@ class SupCon_State_abstractor(State_abstractor):
                 d.append(self.compute_mahalanobis(mu, pinv_sigma, f))
             d = np.array(d)
             d = np.quantile(d, 0.95)
-            mu_cov[i] = [mu, pinv_sigma, d*1.25]
+            mu_cov[i] = [mu, pinv_sigma, d*scale]
         return mu_cov
 
     def test(self, mean_cov, dataset=None, outlier=False):
@@ -592,30 +594,35 @@ class SupCon_State_abstractor(State_abstractor):
         # print classification report
         print(classification_report(true_label, pred_label, digits=4))
 
+    def load_classifier(self):
+        self.embedding.train()
+        self.embedding.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_embedding.pt"))
+        self.embedding.eval()
+
+        self.cls.train()
+        self.cls.load_state_dict(torch.load(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_cls.pt"))
+        self.cls.eval()
+        print(f'------\t Successfully load classifier {self.name}\t-----------')
+
+        # load pkl file
+        with open(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_1.5.pkl", 'rb') as f:
+            self.mu_cov = pickle.load(f)
+
 if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
-    parser.add_argument('--goal_str', type=str, default='1l2b2r', help='Goal string')
-    parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
+    parser.add_argument('--goal_str', type=str, default='house_building_4', help='Goal string')
+    parser.add_argument('--use_equivariant', type=bool, default=False, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
-    parser.add_argument('--visualize', type=bool, default=True, help='Visualize training')
+    parser.add_argument('--visualize', type=bool, default=False, help='Visualize training')
     args = parser.parse_args()
 
     if args.supcon:
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_embedding(num_training_steps=10000, visualize=args.visualize)
         model.train_linear_classifier(num_training_steps=10000)
-        mean_cov = model.find_mean_cov()
-        # save mean_cov
-        with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}.pkl', 'wb') as f:
-            pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)
-        model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
-        model.test(mean_cov=mean_cov, outlier=True)
-    else:
-        model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
-        model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
-        for i in [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]:
+        for i in [1.25, 1.5, 1.75]:
             print('='*50)
             print(f'Using scale {i}')
             print('='*50)
@@ -625,5 +632,20 @@ if __name__ == '__main__':
                 pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)
             model.test(mean_cov=mean_cov, dataset=model.valid_dataset)
             model.test(mean_cov=mean_cov, outlier=True)
+    else:
+        model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
+        model.train_state_abstractor(num_training_steps=10000, visualize=args.visualize)
+        # for i in [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]:
+            # print('='*50)
+            # print(f'Using scale {i}')
+            # print('='*50)
+            # mean_cov = model.find_mean_cov1(scale=i)
+            # save mean_cov
+            # with open(f'bulletarm_baselines/fc_dqn/classifiers/{model.name}_{i}.pkl', 'wb') as f:
+                # pickle.dump(mean_cov, f, protocol=pickle.HIGHEST_PROTOCOL)prohibitive
+            # model.test1(mean_cov=mean_cov, dataset=model.valid_dataset)
+            # model.test1(mean_cov=mean_cov, outlier=True)
             # model.test(mean_cov=mean_cov, in_dis=True)
+        model.test(mean_cov=None, dataset=model.valid_dataset)
+        model.test(mean_cov=None, outlier=True)
 
