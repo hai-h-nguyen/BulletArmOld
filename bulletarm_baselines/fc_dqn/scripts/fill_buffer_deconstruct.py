@@ -21,7 +21,7 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next')
+ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next env_reward')
 
 
 def update_abs_goals(abs_states):
@@ -196,14 +196,16 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
   for i, transition in enumerate(transitions):
     (state, in_hand, obs), action, reward, done, (next_state, next_in_hand, next_obs),(abs_state,abs_state_next) = transition
     true_abs_state = torch.tensor(abs_state).to(device)
-    pred_abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))[0]
+    if (classifier is not None):
+        pred_abs_state = get_cls(classifier, obs.reshape(1,1,128,128),in_hand.reshape(1,1,24,24))[0]
     if (use_classifier):
         abs_state = pred_abs_state
     else:
         abs_state = true_abs_state
     abs_state = remove_outlier(abs_state, num_class)
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
-    pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
+    if (classifier is not None):
+        pred_abs_state_next = get_cls(classifier, next_obs.reshape(1,1,128,128),next_in_hand.reshape(1,1,24,24))[0]
 
     if (use_classifier):
         abs_state_next = pred_abs_state_next 
@@ -233,7 +235,8 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
       torch.tensor(float(0)),
       torch.tensor(1),
       abs_state, abs_goal,
-      abs_state_next,abs_goal_next
+      abs_state_next,abs_goal_next,
+      torch.tensor(reward).float(),
       )
     )
   decon_envs.close()

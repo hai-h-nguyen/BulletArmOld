@@ -34,6 +34,7 @@ from bulletarm_baselines.fc_dqn.scripts.fill_buffer_deconstruct import train_fil
 # from bulletarm_baselines.fc_dqn.scripts.all_about_classifier import load_classifier
 from bulletarm_baselines.fc_dqn.scripts.State_abstractor import State_abstractor
 from bulletarm_baselines.fc_dqn.utils.dataset import ListDataset, count_objects
+from bulletarm_baselines.fc_dqn.agents.agents_3d.dqn_3d_meta_controller import MetaController
 
 
 ExpertTransition = collections.namedtuple('ExpertTransition', 'state obs action reward next_state next_obs done step_left expert abs_state abs_goal abs_state_next abs_goal_next env_reward')
@@ -67,12 +68,14 @@ def remove_outlier(abs_states,num_classes):
         max_abs = torch.full(abs_states.shape,num_classes - 1,dtype=abs_states.dtype).to(device)
         return torch.min(abs_states, max_abs)
 
-def train_step(agent, replay_buffer, logger):
+def train_step(agent,meta_controller, replay_buffer, logger):
     batch = replay_buffer.sample(batch_size)
     loss, td_error = agent.update(batch)
+    meta_loss = meta_controller.update(batch)
     logger.logTrainingStep(loss)
     if logger.num_steps % target_update_freq == 0:
         agent.updateTarget()
+        meta_controller.updateTarget()
 
 def saveModelAndInfo(logger, agent):
     logger.writeLog()
@@ -202,7 +205,7 @@ def train():
     if (wandb_logs):
         print('---------------------using Wandb---------------------')
         wandb.init(project=env, settings=wandb.Settings(_disable_stats=True), \
-        group=wandb_group, name=wandb_seed, entity='icra2023')
+        group="h-dqn"+wandb_group, name=wandb_seed, entity='hmhuy')
     else:
         print('----------------------no Wandb-----------------------')
 
@@ -223,21 +226,18 @@ def train():
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
     classifier = State_abstractor(goal_str=env, use_equivariant=use_equivariant, equal_param=False, device=device)
-    classifier = classifier.load_classifier()
-    # classifier = load_classifier(goal_str = env,num_classes=num_classes,use_equivariant=use_equivariant, use_proser=use_proser, dummy_number=dummy_number,device=device)
+    classifier = classifier.classifier
+    meta_controller = MetaController(num_classes = num_classes,device=device)
+    meta_controller.initNetwork(classifier)
     agent = createAgent(num_classes)
-    eval_agent = createAgent(num_classes,test=True)
+    # eval_agent = createAgent(num_classes,test=True)
     # load classifier
-    if (use_classifier):
-        print('---- use abstract state from classifier  ----')
-    else:
-        print('---- use true abstract state from environment    -----')
-    
 
     if load_model_pre:
         agent.loadModel(load_model_pre)
     agent.train()
-    eval_agent.train()
+    # eval_agent.train()
+    meta_controller.train()
 
     # logging
     base_dir = os.path.join(log_pre, '{}_{}_{}'.format(alg, model, env))
@@ -269,7 +269,7 @@ def train():
     #------------------------------------- expert transition ----------------------------------------#    
     if planner_episode > 0 and not load_sub:
         if fill_buffer_deconstruct:
-            train_fillDeconstructUsingRunner(agent, replay_buffer,classifier)
+            train_fillDeconstructUsingRunner(agent, replay_buffer,None)
     #------------------------------------- pretrainning with expert ----------------------------------------#    
     #-------------------------------------- start trainning ----------------------------------------------#
     if not no_bar:
@@ -281,15 +281,6 @@ def train():
     old_total_goal = np.zeros((num_classes))
     old_success_goal = np.zeros((num_classes))
     train_return = []
-    if (get_bad_pred):
-        dataset = ListDataset()
-        # create_folder(f'outlier/debug_outlier_{env}_{wandb_group}')
-        create_folder('new_data_out/')
-        create_folder(f'new_data_out/debug_out_{env}_{wandb_group}')
-        for idx in range(num_classes):
-            create_folder(f'new_data_out/debug_in_{env}_{idx}_{wandb_group}')
-        cnt_in = [0 for _ in range(num_classes)]
-        cnt_out = 0
     while logger.num_training_steps < max_train_step + 1:
         if (logger.num_training_steps%eval_freq == 0 and logger.num_training_steps > 0):
             for idx in range(num_classes-1):
@@ -306,75 +297,10 @@ def train():
             eps = exploration.value(logger.num_eps)
         is_expert = 0
         true_abs_states = torch.tensor(envs.get_true_abs_states()).to(device)
-        pred_abs_states = get_cls(classifier,obs,in_hands)
-        if (use_classifier):
-            abs_states = pred_abs_states 
-        else:
-            abs_states = true_abs_states 
-
-        abs_states = remove_outlier(abs_states,num_classes)
-        abs_goals = update_abs_goals(abs_states)
-
-        #############################################
-        num_bad_pred = get_bad_pred
-        if (get_bad_pred and min(cnt_out,np.min(cnt_in))<=num_bad_pred):
-            for i in range(abs_states.shape[0]):
-                if (true_abs_states[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                    if (cnt_out>=num_bad_pred):
-                        continue
-                    dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states[i].cpu().detach().numpy().astype(np.int32))
-                    plt.figure(figsize=(15,4))
-                    plt.subplot(1,2,1)
-                    plt.imshow(obs[i].reshape(128,128), cmap='gray')
-                    plt.colorbar()
-                    plt.subplot(1,2,2)
-                    plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
-                    plt.colorbar()
-                    plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
-                    plt.savefig(f'new_data_out/debug_out_{env}_{wandb_group}/image_{cnt_out}.png')
-                    cnt_out += 1
-                    plt.close()
-                else:
-                    label = true_abs_states[i].cpu().detach().numpy().astype(np.int32)
-                    if (cnt_in[label]>=num_bad_pred):
-                        continue
-                    dataset.add("HAND_BITS", states[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("OBS", obs[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("HAND_OBS", in_hands[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states[i].cpu().detach().numpy().astype(np.int32))
-                    plt.figure(figsize=(15,4))
-                    plt.subplot(1,2,1)
-                    plt.imshow(obs[i].reshape(128,128), cmap='gray')
-                    plt.colorbar()
-                    plt.subplot(1,2,2)
-                    plt.imshow(in_hands[i].reshape(24,24), cmap='gray')
-                    plt.colorbar()
-                    plt.suptitle(f"True: {true_abs_states[i]}, Pred: {pred_abs_states[i]}")
-                    plt.savefig(f'new_data_out/debug_in_{env}_{label}_{wandb_group}/image_{cnt_in[label]}.png')
-                    cnt_in[true_abs_states[i].cpu().detach().numpy().astype(np.int32)] += 1
-                    plt.close()
-
-            if (min(cnt_out,np.min(cnt_in)) >= num_bad_pred):
-                dataset = dataset.to_array_dataset({
-                    "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
-                    "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
-                })
-                dataset.metadata = {
-                "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
-                }
-                print('get',dataset.size,'data samples')
-                dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/full_data_{env}_{wandb_group}.h5")
-                exit()
-        #############################################
-
+        abs_states = remove_outlier(true_abs_states,num_classes)
+        abs_goals = meta_controller.getEGreedyActions(in_hand=in_hands,obs=obs,eps=max(0.01,1.0*(1-logger.num_training_steps/5000)))
         for i in range(num_processes):
             total_goal[abs_goals[i]] += 1
-
         q_value_maps, actions_star_idx, actions_star = agent.getEGreedyActions(
             states, in_hands, obs,abs_states,abs_goals, eps
             )
@@ -385,83 +311,19 @@ def train():
 
         if len(replay_buffer) >= training_offset:
             for training_iter in range(training_iters):
-                train_step(agent, replay_buffer, logger)
+                train_step(agent,meta_controller, replay_buffer, logger)
 
         states_, in_hands_, obs_, rewards, dones = envs.stepWait()
         clone_rewards = copy.deepcopy(rewards)
         true_abs_states_next = torch.tensor(envs.get_true_abs_states()).to(device) 
-        pred_abs_states_next = get_cls(classifier, obs_, in_hands_)
-        if (use_classifier):
-            abs_states_next = pred_abs_states_next 
-        else:
-            abs_states_next = true_abs_states_next 
-        abs_states_next = remove_outlier(abs_states_next,num_classes)
-        abs_goals_next =  update_abs_goals(abs_states_next)
-
-        #############################################
-        num_bad_pred = get_bad_pred
-        if (get_bad_pred and min(cnt_out,np.min(cnt_in))<=num_bad_pred):
-            print(cnt_in,cnt_out,min(cnt_out,np.min(cnt_in)))
-            for i in range(abs_states.shape[0]):
-                if (true_abs_states_next[i].cpu().detach().numpy().astype(np.int32) == num_classes):
-                    if (cnt_out>=num_bad_pred):
-                        continue
-                    dataset.add("HAND_BITS", states_[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("OBS", obs_[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("HAND_OBS", in_hands_[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states_next[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states_next[i].cpu().detach().numpy().astype(np.int32))
-                    plt.figure(figsize=(15,4))
-                    plt.subplot(1,2,1)
-                    plt.imshow(obs_[i].reshape(128,128), cmap='gray')
-                    plt.colorbar()
-                    plt.subplot(1,2,2)
-                    plt.imshow(in_hands_[i].reshape(24,24), cmap='gray')
-                    plt.colorbar()
-                    plt.suptitle(f"True: {true_abs_states_next[i]}, Pred: {pred_abs_states_next[i]}")
-                    plt.savefig(f'new_data_out/debug_out_{env}_{wandb_group}/image_{cnt_out}.png')
-                    cnt_out += 1
-                    plt.close()
-                else:
-                    label = true_abs_states_next[i].cpu().detach().numpy().astype(np.int32)
-                    if (cnt_in[label]>=num_bad_pred):
-                        continue
-                    dataset.add("HAND_BITS", states_[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("OBS", obs_[i].reshape(128,128).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("HAND_OBS", in_hands_[i].reshape(24,24).cpu().detach().numpy().astype(np.float32))
-                    dataset.add("TRUE_ABS_STATE_INDEX", true_abs_states_next[i].cpu().detach().numpy().astype(np.int32))
-                    dataset.add("PRED_ABS_STATE_INDEX", pred_abs_states_next[i].cpu().detach().numpy().astype(np.int32))
-                    plt.figure(figsize=(15,4))
-                    plt.subplot(1,2,1)
-                    plt.imshow(obs_[i].reshape(128,128), cmap='gray')
-                    plt.colorbar()
-                    plt.subplot(1,2,2)
-                    plt.imshow(in_hands_[i].reshape(24,24), cmap='gray')
-                    plt.colorbar()
-                    plt.suptitle(f"True: {true_abs_states_next[i]}, Pred: {pred_abs_states_next[i]}")
-                    plt.savefig(f'new_data_out/debug_in_{env}_{label}_{wandb_group}/image_{cnt_in[label]}.png')
-                    cnt_in[true_abs_states_next[i].cpu().detach().numpy().astype(np.int32)] += 1
-                    plt.close()
-
-            if (min(cnt_out,np.min(cnt_in)) >= num_bad_pred):
-                dataset = dataset.to_array_dataset({
-                    "HAND_BITS": np.int32, "OBS": np.float32, "HAND_OBS": np.float32,
-                    "TRUE_ABS_STATE_INDEX": np.int32,"PRED_ABS_STATE_INDEX": np.int32,
-                })
-                dataset.metadata = {
-                "NUM_EXP": dataset.size, "TIMESTAMP": str(datetime.today())
-                }
-                print('get',dataset.size,'data samples')
-                dataset.save_hdf5(f"bulletarm_baselines/fc_dqn/classifiers/full_data_{env}_{wandb_group}.h5")
-                exit()
-        #############################################
-
+        abs_states_next = remove_outlier(true_abs_states_next,num_classes)
+        abs_goals_next =  meta_controller.getEGreedyActions(in_hand=in_hands_,obs=obs_,eps=max(0.01,1.0*(1-logger.num_training_steps/5000)))
         goals_achieved = (abs_states_next == abs_goals)
         rewards = goals_achieved.unsqueeze(1).float() - 1.0 
         goals_achieved = goals_achieved.cpu()
         for i in range(num_processes):
             if goals_achieved[i].cpu().item() is False:
-                dones[i] = 1.0
+                rewards[i] = torch.tensor(-1).float()
             else:
                 if (abs_goals[i] == 0):
                     rewards[i] = clone_rewards[i]# - 1.0
@@ -499,8 +361,7 @@ def train():
                                 #------------------#
                                 torch.tensor(100), torch.tensor(is_expert), 
                                 abs_states[i], abs_goals[i],
-                                abs_states_next[i],abs_goals_next[i],
-                                clone_rewards[i])
+                                abs_states_next[i],abs_goals_next[i],clone_rewards[i])
             )
 
         logger.logStep(clone_rewards.cpu().numpy(), dones.cpu().numpy())
@@ -514,20 +375,21 @@ def train():
 
         if not no_bar:
             timer_final = time.time()
-            description = 'Env Step:{}; Episode: {}; Return:{:.03f}; Eval Return:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; train_steps:{}'.format(
+            description = 'Env Step:{}; Episode: {}; Return:{:.03f}; Eval Return:{:.03f}; meta_explore:{:.02f}; Loss:{:.03f}; train_steps:{}'.format(
               logger.num_steps, logger.num_eps, logger.getAvg(logger.training_eps_rewards, 100),
-              np.mean(logger.eval_eps_rewards[-2]) if len(logger.eval_eps_rewards) > 1 and len(logger.eval_eps_rewards[-2]) > 0 else 0, eps, float(logger.getCurrentLoss()),
+              np.mean(logger.eval_eps_rewards[-2]) if len(logger.eval_eps_rewards) > 1 and len(logger.eval_eps_rewards[-2]) > 0 else 0, 
+              max(0.01,1.0*(1-logger.num_training_steps/5000)), float(logger.getCurrentLoss()),
               logger.num_training_steps)
             pbar.set_description(description)
             timer_start = timer_final
             pbar.update(logger.num_training_steps - pbar.n)
 
-        if logger.num_training_steps > 0 and eval_freq > 0 and logger.num_training_steps % eval_freq == 0:
-            if eval_thread is not None:
-                eval_thread.join()
-            eval_agent.copyNetworksFrom(agent)
-            eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,num_eval_episodes,logger, wandb_logs,classifier,logger.num_training_steps,False))
-            eval_thread.start()
+        # if logger.num_training_steps > 0 and eval_freq > 0 and logger.num_training_steps % eval_freq == 0:
+        #     if eval_thread is not None:
+        #         eval_thread.join()
+        #     eval_agent.copyNetworksFrom(agent)
+        #     eval_thread = threading.Thread(target=evaluate, args=(eval_envs, eval_agent,num_eval_episodes,logger, wandb_logs,classifier,logger.num_training_steps,False))
+        #     eval_thread.start()
 
         if logger.num_steps % (num_processes * save_freq) == 0:
             saveModelAndInfo(logger, agent)

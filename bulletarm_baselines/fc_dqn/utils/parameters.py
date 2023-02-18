@@ -89,6 +89,7 @@ logging_group.add_argument('--get_bad_pred', type=int, default=0)
 logging_group.add_argument('--classifier_name', type=str, default=None)
 buffer_group.add_argument('--dummy_number', type=int, default=1)
 buffer_group.add_argument('--use_equivariant', type=int, default=0)
+buffer_group.add_argument('--num_eps_meta', type=int, default=3000)
 # buffer_group.add_argument('--use_proser', type=int, default=0)
 
 args = parser.parse_args()
@@ -186,6 +187,7 @@ buffer_type = args.buffer
 batch_size = args.batch_size
 buffer_size = args.buffer_size
 fixed_buffer = args.fixed_buffer
+num_eps_meta = args.num_eps_meta
 
 # margin
 margin_l = args.margin_l
