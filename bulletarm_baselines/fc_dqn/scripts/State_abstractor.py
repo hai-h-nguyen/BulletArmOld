@@ -31,11 +31,11 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.2, eval=False):
+def load_dataset(goal_str, validation_fraction=0.8, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
-        dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/full_data_{goal_str}_goal_25_dqn_normal.h5")
+        dataset.load_hdf5(f"/home/hnguyen/huy/final/BulletArm/bulletarm_baselines/fc_dqn/classifiers/full_data_{goal_str}_goal_5_dqn_normal.h5")
         num_samples = dataset.size
         print(f"Total number samples: {num_samples}")
         abs_index = dataset["TRUE_ABS_STATE_INDEX"]
@@ -611,7 +611,7 @@ class SupCon_State_abstractor(State_abstractor):
 if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
-    parser.add_argument('--goal_str', type=str, default='house_building_4', help='Goal string')
+    parser.add_argument('--goal_str', type=str, default='block_stacking', help='Goal string')
     parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')

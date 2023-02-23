@@ -81,18 +81,10 @@ def saveModelAndInfo(logger, agent):
 
 def get_cls(state_abstractor, obs, inhand):
     state_abstractor.classifier.eval()
-    pred = []
     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
-    features = state_abstractor.classifier.encoder([obs,inhand])
-    for i in range(features.shape[0]):
-        feature = features[i]
-        # if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
-        #     pred.append(state_abstractor.num_classes)
-        # else:
-        pred.append(state_abstractor.classifier.fc(feature).argmax().item())
-    pred = torch.tensor(pred).to(device)
-    return pred
+    out = state_abstractor.classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
+    return torch.argmax(out, dim=1)
 
 # def get_cls(state_abstractor, obs, inhand):
 #     state_abstractor.classifier.eval()
