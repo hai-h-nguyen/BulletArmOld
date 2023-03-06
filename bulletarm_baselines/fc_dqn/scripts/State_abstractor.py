@@ -31,7 +31,7 @@ def create_folder(path):
     except:
         print(f'[INFO] folder {path} existed, can not create new')
 
-def load_dataset(goal_str, validation_fraction=0.8, eval=False):
+def load_dataset(goal_str, validation_fraction=0.6, eval=False):
     dataset = ArrayDataset(None)
     if eval:
         print(f"=================\t Loading eval dataset {goal_str} \t=================")
@@ -605,16 +605,18 @@ class SupCon_State_abstractor(State_abstractor):
         print(f'------\t Successfully load classifier {self.name}\t-----------')
 
         # load pkl file
-        with open(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}_1.5.pkl", 'rb') as f:
+        with open(f"bulletarm_baselines/fc_dqn/classifiers/{self.name}.pkl", 'rb') as f:
             self.mu_cov = pickle.load(f)
+
+        self.classifier = None
 
 if __name__ == '__main__':
     # Build argument parser
     parser = argparse.ArgumentParser()
-    parser.add_argument('--goal_str', type=str, default='block_stacking', help='Goal string')
+    parser.add_argument('--goal_str', type=str, default='1l2b2r', help='Goal string')
     parser.add_argument('--use_equivariant', type=bool, default=True, help='Use equivariant model')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
-    parser.add_argument('--supcon', type=bool, default=False, help='Use supcon model')
+    parser.add_argument('--supcon', type=bool, default=True, help='Use supcon model')
     parser.add_argument('--visualize', type=bool, default=False, help='Visualize training')
     args = parser.parse_args()
 
@@ -622,7 +624,11 @@ if __name__ == '__main__':
         model = SupCon_State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_embedding(num_training_steps=12000, visualize=args.visualize)
         model.train_linear_classifier(num_training_steps=12000)
-        model.test(mean_cov=None, dataset=model.valid_dataset)
+        mean_conv = model.find_mean_cov(scale=1.5)
+        model.test(mean_cov=mean_conv, dataset=model.valid_dataset)
+        model.test(mean_cov=mean_conv, outlier=True)
+        with open(f"bulletarm_baselines/fc_dqn/classifiers/{model.name}.pkl", 'wb') as f:
+            pickle.dump(mean_conv, f)
     else:
         model = State_abstractor(goal_str=args.goal_str, use_equivariant=args.use_equivariant, device=torch.device(args.device))
         model.train_state_abstractor(num_training_steps=12000, visualize=args.visualize)

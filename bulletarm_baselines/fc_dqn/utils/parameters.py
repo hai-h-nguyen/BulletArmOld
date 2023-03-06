@@ -33,7 +33,7 @@ training_group.add_argument('--gamma', type=float, default=0.95, help='The disco
 training_group.add_argument('--explore', type=int, default=0, help='The number of exploration steps')
 training_group.add_argument('--fixed_eps', action='store_true', help='If true, fix the epsilon at the final value')
 training_group.add_argument('--init_eps', type=float, default=0.5, help='The initial value of the epsilon schedule')
-training_group.add_argument('--final_eps', type=float, default=0.0, help='The final value of the epsilon schedule')
+training_group.add_argument('--final_eps', type=float, default=0.01, help='The final value of the epsilon schedule')
 training_group.add_argument('--training_iters', type=int, default=1, help='The number of training iterations per step')
 training_group.add_argument('--training_offset', type=int, default=100, help='The minimal number of transitions to start training')
 training_group.add_argument('--max_train_step', type=int, default=10000, help='The maximal number of training steps')

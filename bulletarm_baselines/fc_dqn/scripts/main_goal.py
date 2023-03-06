@@ -79,12 +79,12 @@ def saveModelAndInfo(logger, agent):
     logger.exportData()
     agent.saveModel(os.path.join(logger.models_dir, 'snapshot'))
 
-def get_cls(state_abstractor, obs, inhand):
-    state_abstractor.classifier.eval()
-    obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
-    inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
-    out = state_abstractor.classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
-    return torch.argmax(out, dim=1)
+# def get_cls(state_abstractor, obs, inhand):
+#     state_abstractor.classifier.eval()
+#     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     out = state_abstractor.classifier([obs,inhand]).clone().detach().type(torch.cuda.FloatTensor).to(device)
+#     return torch.argmax(out, dim=1)
 
 # def get_cls(state_abstractor, obs, inhand):
 #     state_abstractor.classifier.eval()
@@ -103,21 +103,22 @@ def get_cls(state_abstractor, obs, inhand):
 #     pred = torch.tensor(pred).to(device)
 #     return pred
 
-# def get_cls(state_abstractor, obs, inhand):
-#     state_abstractor.embedding.eval()
-#     state_abstractor.cls.eval()
-#     pred = []
-#     obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
-#     inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
-#     features = state_abstractor.embedding.encoder([obs,inhand])
-#     for i in range(features.shape[0]):
-#         feature = features[i]
-#         if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
-#             pred.append(state_abstractor.num_classes)
-#         else:
-#             pred.append(state_abstractor.cls(feature.unsqueeze(0)).argmax().item())
-#     pred = torch.tensor(pred).to(device)
-#     return pred
+def get_cls(state_abstractor, obs, inhand):
+    state_abstractor.embedding.eval()
+    state_abstractor.cls.eval()
+    pred = []
+    obs = obs.clone().detach().type(torch.cuda.FloatTensor).to(device)
+    inhand = inhand.clone().detach().type(torch.cuda.FloatTensor).to(device)
+    features = state_abstractor.embedding.encoder([obs,inhand])
+    for i in range(features.shape[0]):
+        feature = features[i]
+        if state_abstractor.check_outlier(feature, state_abstractor.mu_cov):
+            pred.append(state_abstractor.num_classes)
+        else:
+            pred.append(state_abstractor.cls(feature.unsqueeze(0)).argmax().item())
+    pred = torch.tensor(pred).to(device)
+    return pred
+
 
 def evaluate(envs, agent,num_eval_episodes,logger=None, wandb_logs=False,state_abstractor=None,num_steps=0,debug = False,render=False):
     num_objects = envs.getNumObj()
@@ -257,8 +258,8 @@ def train():
     num_objects = envs.getNumObj()
     num_classes = 2 * num_objects - 1 
     print(f'num class = {num_classes}')
-    state_abstractor = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
-    # state_abstractor = SupCon_State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    # state_abstractor = State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
+    state_abstractor = SupCon_State_abstractor(goal_str=env, use_equivariant=use_equivariant, device=device)
     state_abstractor.load_classifier()
     agent = createAgent(num_classes)
     eval_agent = createAgent(num_classes,test=True)

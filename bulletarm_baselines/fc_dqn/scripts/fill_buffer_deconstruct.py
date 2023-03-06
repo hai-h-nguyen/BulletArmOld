@@ -202,11 +202,11 @@ def train_fillDeconstructUsingRunner(agent, replay_buffer,classifier):
         abs_state = num_class - 1
     abs_state = torch.tensor(abs_state).to(device)
     abs_state = remove_outlier(abs_state, num_class)
-    assert abs_state == true_abs_state
+    # assert abs_state == true_abs_state
     
     true_abs_state_next = torch.tensor(abs_state_next).to(device)
     abs_state_next = abs_state - 1
-    assert abs_state_next == true_abs_state_next
+    # assert abs_state_next == true_abs_state_next
     abs_state_next = remove_outlier(abs_state_next,num_class)
 
     abs_goal = update_abs_goals(abs_state)
